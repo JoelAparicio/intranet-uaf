@@ -1,0 +1,74 @@
+# intranet-backend/.dockerignore
+# Excluir archivos innecesarios del build
+
+# Dependencies (se instalan en el contenedor)
+/vendor
+/node_modules
+
+# Storage files (se crean en runtime)
+/storage/app/*
+!/storage/app/public
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/testing/*
+/storage/framework/views/*
+/storage/logs/*
+/bootstrap/cache/*
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.buildpath
+
+# OS files
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Test files
+/tests/
+phpunit.xml
+.phpunit.result.cache
+
+# Documentation
+README.md
+*.md
+CHANGELOG*
+LICENSE*
+
+# Build artifacts
+*.log
+*.cache
+
+# Symlinks (se crean en runtime)
+/public/storage
+
+# Docker files (evitar recursión)
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# Development tools
+.php_cs
+.php_cs.cache
+psalm.xml
+phpstan.neon

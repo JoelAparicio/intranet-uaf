@@ -1,0 +1,35 @@
+# Dependencies (se instalan con npm ci)
+node_modules/
+npm-debug.log*
+
+# Development files
+.env.local
+.env.development
+*.log
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts (solo si quieres excluir dist)
+# dist/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Cache
+.npm/
+.eslintcache
+
+# Temporary files
+*.tmp
+*.temp

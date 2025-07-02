@@ -1,0 +1,22 @@
+# Symlinks (se crean en runtime)
+/public/storage
+public/storage
+
+# Archivos de desarrollo que no necesita el contenedor
+node_modules/
+.git/
+.gitignore
+*.log
+.env.local
+.env.development
+
+# Cache y archivos temporales
+/storage/logs/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/bootstrap/cache/*
+
+# Archivos de usuario que se generan en runtime
+/storage/app/public/formularios/
+/storage/app/public/firmas/

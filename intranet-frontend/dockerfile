@@ -1,0 +1,66 @@
+# intranet-frontend/Dockerfile
+# Multi-stage build para desarrollo y producción
+
+# Stage base con Node.js
+FROM node:18-alpine as base
+
+# Instalar Vue CLI globalmente
+RUN npm install -g @vue/cli@latest
+
+# Establecer directorio de trabajo
+WORKDIR /app
+
+# Copiar archivos de dependencias
+COPY package*.json ./
+
+# Instalar dependencias
+RUN npm ci --only=production=false
+
+# Stage para desarrollo (SIN Nginx - usa Vue CLI dev server)
+FROM base as development
+
+# Copiar todo el código fuente
+COPY . .
+
+# Copiar el archivo .env.docker como .env para desarrollo
+COPY .env.docker .env
+
+# Exponer puerto para desarrollo
+EXPOSE 3000
+
+# Comando para desarrollo con hot reload - PUERTO 3000
+CMD ["npm", "run", "serve", "--", "--host", "0.0.0.0", "--port", "3000"]
+
+# Stage para construcción de producción
+FROM base as build
+
+# Copiar código fuente
+COPY . .
+
+# Copiar el archivo .env.production como .env para build
+COPY .env.production .env
+
+# Construir la aplicación para producción
+RUN npm run build
+
+# Stage final para producción (CON Nginx - solo para servir archivos estáticos)
+FROM nginx:alpine as production
+
+# Copiar archivos construidos desde el stage anterior
+COPY --from=build /app/dist /usr/share/nginx/html
+
+# Configuración básica de nginx para SPA
+RUN echo 'server { \
+    listen 80; \
+    location / { \
+        root /usr/share/nginx/html; \
+        index index.html; \
+        try_files $uri $uri/ /index.html; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
+
+# Exponer puerto 80
+EXPOSE 80
+
+# Comando por defecto de nginx
+CMD ["nginx", "-g", "daemon off;"]
