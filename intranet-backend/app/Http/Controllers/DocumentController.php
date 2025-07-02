@@ -190,7 +190,7 @@ class DocumentController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Documento generado correctamente',
-            'pdf_file_path' => Storage::disk('public')->url("{$folder}/{$fileName}"),
+            'pdf_file_path' => "/storage/{$folder}/{$fileName}",
             'estado' => $solicitud->estado,
             'firmas_incluidas' => [
                 'solicitante' => $firma_path ? true : false,
@@ -307,7 +307,7 @@ class DocumentController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Documento de reincorporación generado correctamente',
-            'pdf_file_path' => Storage::disk('public')->url("{$folder}/{$fileName}"),
+            'pdf_file_path' => "/storage/{$folder}/{$fileName}",
             'estado' => $solicitud->estado,
             'firmas_incluidas' => [
                 'solicitante' => $firma_path ? true : false,
@@ -440,7 +440,7 @@ class DocumentController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Documento de tiempo compensatorio generado correctamente',
-            'pdf_file_path' => Storage::disk('public')->url("{$folder}/{$fileName}"),
+            'pdf_file_path' => "/storage/{$folder}/{$fileName}",
             'estado' => $solicitud->estado,
             'firmas_incluidas' => [
                 'solicitante' => $firma_path ? true : false,
@@ -613,7 +613,7 @@ class DocumentController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Documento de vacaciones generado correctamente',
-            'pdf_file_path' => Storage::disk('public')->url("{$folder}/{$fileName}"),
+            'pdf_file_path' => "/storage/{$folder}/{$fileName}",
             'estado' => $solicitud->estado,
             'firmas_incluidas' => [
                 'solicitante' => $firma_path ? true : false,
@@ -746,7 +746,7 @@ class DocumentController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Documento de horas extraordinarias generado correctamente',
-            'pdf_file_path' => Storage::disk('public')->url("{$folder}/{$fileName}"),
+            'pdf_file_path' => "/storage/{$folder}/{$fileName}",
             'estado' => $solicitud->estado,
             'firmas_incluidas' => [
                 'solicitante' => $firma_path ? true : false,
@@ -848,7 +848,7 @@ class DocumentController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'PDF obtenido correctamente',
-                'pdf_file_path' => Storage::disk('public')->url($documento->path),
+                'pdf_file_path' => "/storage/{$documento->path}",
             ], 200);
 
         } catch (\Exception $e) {
