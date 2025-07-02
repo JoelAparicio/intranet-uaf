@@ -170,13 +170,12 @@ class DocumentController extends Controller
 
         $folder = "formularios/permisos";
         $fileName = 'solicitud_' . $solicitud->id_solicitud . '_' . now()->format('Ymd_His') . '.pdf';
-        $filePath = "public/{$folder}/{$fileName}";
 
         $html = view('pdf.solicitud', $datos_pdf)->render();
         $pdf = Pdf::loadHTML($html)->output();
 
         Storage::disk('public')->makeDirectory($folder);
-        Storage::disk('public')->put($fileName, $pdf);
+        Storage::disk('public')->put("{$folder}/{$fileName}", $pdf);
 
         Documentos::updateOrCreate(
             ['id_solicitud' => $solicitud->id_solicitud],
@@ -191,7 +190,7 @@ class DocumentController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Documento generado correctamente',
-            'pdf_file_path' => Storage::url("{$folder}/{$fileName}"),
+            'pdf_file_path' => Storage::disk('public')->url("{$folder}/{$fileName}"),
             'estado' => $solicitud->estado,
             'firmas_incluidas' => [
                 'solicitante' => $firma_path ? true : false,
@@ -288,13 +287,12 @@ class DocumentController extends Controller
 
         $folder = "formularios/reincorporaciones";
         $fileName = 'reincorporacion_' . $solicitud->id_solicitud . '_' . now()->format('Ymd_His') . '.pdf';
-        $filePath = "public/{$folder}/{$fileName}";
 
         $html = view('pdf.reincorporacion', $datos_pdf)->render();
         $pdf = Pdf::loadHTML($html)->output();
 
         Storage::disk('public')->makeDirectory($folder);
-        Storage::disk('public')->put($fileName, $pdf);
+        Storage::disk('public')->put("{$folder}/{$fileName}", $pdf);
 
         Documentos::updateOrCreate(
             ['id_solicitud' => $solicitud->id_solicitud],
@@ -309,7 +307,7 @@ class DocumentController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Documento de reincorporación generado correctamente',
-            'pdf_file_path' => Storage::url("{$folder}/{$fileName}"),
+            'pdf_file_path' => Storage::disk('public')->url("{$folder}/{$fileName}"),
             'estado' => $solicitud->estado,
             'firmas_incluidas' => [
                 'solicitante' => $firma_path ? true : false,
@@ -422,13 +420,12 @@ class DocumentController extends Controller
 
         $folder = "formularios/tiempo_compensatorio";
         $fileName = 'compensatorio_' . $solicitud->id_solicitud . '_' . now()->format('Ymd_His') . '.pdf';
-        $filePath = "public/{$folder}/{$fileName}";
 
         $html = view('pdf.compensatorio', $datos_pdf)->render();
         $pdf = Pdf::loadHTML($html)->output();
 
         Storage::disk('public')->makeDirectory($folder);
-        Storage::disk('public')->put($fileName, $pdf);
+        Storage::disk('public')->put("{$folder}/{$fileName}", $pdf);
 
         Documentos::updateOrCreate(
             ['id_solicitud' => $solicitud->id_solicitud],
@@ -443,7 +440,7 @@ class DocumentController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Documento de tiempo compensatorio generado correctamente',
-            'pdf_file_path' => Storage::url("{$folder}/{$fileName}"),
+            'pdf_file_path' => Storage::disk('public')->url("{$folder}/{$fileName}"),
             'estado' => $solicitud->estado,
             'firmas_incluidas' => [
                 'solicitante' => $firma_path ? true : false,
@@ -596,13 +593,12 @@ class DocumentController extends Controller
 
         $folder = "formularios/vacaciones";
         $fileName = 'vacaciones_' . $solicitud->id_solicitud . '_' . now()->format('Ymd_His') . '.pdf';
-        $filePath = "public/{$folder}/{$fileName}";
 
         $html = view('pdf.vacaciones', $datos_pdf)->render();
         $pdf = Pdf::loadHTML($html)->output();
 
         Storage::disk('public')->makeDirectory($folder);
-        Storage::disk('public')->put($fileName, $pdf);
+        Storage::disk('public')->put("{$folder}/{$fileName}", $pdf);
 
         Documentos::updateOrCreate(
             ['id_solicitud' => $solicitud->id_solicitud],
@@ -617,7 +613,7 @@ class DocumentController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Documento de vacaciones generado correctamente',
-            'pdf_file_path' => Storage::url("{$folder}/{$fileName}"),
+            'pdf_file_path' => Storage::disk('public')->url("{$folder}/{$fileName}"),
             'estado' => $solicitud->estado,
             'firmas_incluidas' => [
                 'solicitante' => $firma_path ? true : false,
@@ -730,13 +726,12 @@ class DocumentController extends Controller
 
         $folder = "formularios/horas_extraordinarias";
         $fileName = 'horas_extras_' . $solicitud->id_solicitud . '_' . now()->format('Ymd_His') . '.pdf';
-        $filePath = "public/{$folder}/{$fileName}";
 
         $html = view('pdf.horasextraordinarias', $datos_pdf)->render();
         $pdf = Pdf::loadHTML($html)->output();
 
         Storage::disk('public')->makeDirectory($folder);
-        Storage::disk('public')->put($fileName, $pdf);
+        Storage::disk('public')->put("{$folder}/{$fileName}", $pdf);
 
         Documentos::updateOrCreate(
             ['id_solicitud' => $solicitud->id_solicitud],
@@ -751,7 +746,7 @@ class DocumentController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Documento de horas extraordinarias generado correctamente',
-            'pdf_file_path' => Storage::url("{$folder}/{$fileName}"),
+            'pdf_file_path' => Storage::disk('public')->url("{$folder}/{$fileName}"),
             'estado' => $solicitud->estado,
             'firmas_incluidas' => [
                 'solicitante' => $firma_path ? true : false,
@@ -853,7 +848,7 @@ class DocumentController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'PDF obtenido correctamente',
-                'pdf_file_path' => Storage::url($documento->path),
+                'pdf_file_path' => Storage::disk('public')->url($documento->path),
             ], 200);
 
         } catch (\Exception $e) {
