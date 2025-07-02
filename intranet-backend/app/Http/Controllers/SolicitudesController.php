@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Solicitudes;
+use App\Models\solicitudes;
 use App\Models\User;
 use App\Models\Aprobaciones;
 use Illuminate\Http\Request;
+use App\Models\Solicitud;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
@@ -144,7 +145,7 @@ class SolicitudesController extends Controller
                 // Ya están almacenados en el campo observacion como JSON
             }
 
-            $solicitud = Solicitudes::create($dataSolicitud);
+            $solicitud = Solicitud::create($dataSolicitud);
 
             // Crear aprobación
             Aprobaciones::create([
@@ -223,7 +224,7 @@ class SolicitudesController extends Controller
     public function historial_solicitud(Request $request)
     {
         $userId = $request->user()->id;
-        $solicitudes = Solicitudes::with(['tipo_solicitud', 'usuario'])
+        $solicitudes = Solicitud::with(['tipo_solicitud', 'usuario'])
             ->where('id_usuario', $userId)
             ->where('deleted', false)
             ->get();
@@ -239,7 +240,7 @@ class SolicitudesController extends Controller
         try {
             $userId = $request->user()->id;
 
-            $solicitud = Solicitudes::with(['tipo_solicitud', 'usuario'])
+            $solicitud = Solicitud::with(['tipo_solicitud', 'usuario'])
                 ->where('id_solicitud', $id)
                 ->where('id_usuario', $userId) // Solo puede ver sus propias solicitudes
                 ->where('deleted', false)
@@ -275,7 +276,7 @@ class SolicitudesController extends Controller
             $user = $request->user();
 
             // Buscar la solicitud
-            $solicitud = Solicitudes::where('id_solicitud', $id)
+            $solicitud = Solicitud::where('id_solicitud', $id)
                 ->where('id_usuario', $user->id) // Solo puede editar sus propias solicitudes
                 ->where('deleted', false)
                 ->first();

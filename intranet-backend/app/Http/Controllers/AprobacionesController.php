@@ -189,7 +189,7 @@ class AprobacionesController extends Controller
         }
 
         // Obtener la solicitud relacionada
-        $solicitud = Solicitudes::where('id_solicitud', $id)->first();
+        $solicitud = Solicitud::where('id_solicitud', $id)->first();
 
         if (!$solicitud) {
             return response()->json([
@@ -273,7 +273,7 @@ class AprobacionesController extends Controller
         }
 
         // Obtener la solicitud relacionada
-        $solicitud = Solicitudes::where('id_solicitud', $id)->first();
+        $solicitud = Solicitud::where('id_solicitud', $id)->first();
 
         if (!$solicitud) {
             return response()->json([

@@ -10,7 +10,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Documentos;
 use App\Models\Aprobaciones;
 use App\Models\User;
-use App\Models\Solicitudes;
+use App\Models\Solicitud;
 use App\Services\RRHHCacheService;
 
 class DocumentController extends Controller
@@ -22,7 +22,7 @@ class DocumentController extends Controller
                 'id_solicitud' => 'required|integer',
             ]);
 
-            $solicitud = Solicitudes::with('usuario')->where('id_solicitud', $request->id_solicitud)->firstOrFail();
+            $solicitud = Solicitud::with('usuario')->where('id_solicitud', $request->id_solicitud)->firstOrFail();
 
             // Determinar qué tipo de documento generar según el tipo de solicitud
             switch ($solicitud->id_tipo_solicitud) {

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Carbon\Carbon;
 
-class birthdays extends Model
+class Birthday extends Model
 {
     use HasFactory, SoftDeletes;
     public function fromDateTime($value)

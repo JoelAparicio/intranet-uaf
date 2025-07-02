@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 
-class solicitudes extends Model
+class Solicitud extends Model
 {
     use HasFactory;
 

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Birthdays;
+use App\Models\Birthday;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -11,7 +11,7 @@ class BirthdayController extends Controller
 {
     public function getBirthdays()
     {
-        $birthdays = Birthdays::with('departmentos')->where('deleted', 0)->get();
+        $birthdays = Birthday::with('departmentos')->where('deleted', 0)->get();
 
         $events = $birthdays->map(function($birthday) {
             return [
@@ -46,7 +46,7 @@ class BirthdayController extends Controller
 
     public function deleteBirthday($id, Request $request)
     {
-        $birthday = Birthdays::find($id);
+        $birthday = Birthday::find($id);
         if ($birthday) {
             $birthday->delete();
             $birthday->deleted = 1;

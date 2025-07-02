@@ -36,7 +36,7 @@ class Aprobaciones extends Model
 
     public function solicitud()
     {
-        return $this->belongsTo(Solicitudes::class, 'id_solicitud', 'id_solicitud');
+        return $this->belongsTo(Solicitud::class, 'id_solicitud', 'id_solicitud');
     }
 
     public function jefeDepartamento()
