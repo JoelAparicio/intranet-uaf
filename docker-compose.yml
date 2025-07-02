@@ -25,7 +25,6 @@ services:
     container_name: intranet-frontend
     environment:
       - NODE_ENV=production
-    # SIN volumes - archivos ya compilados dentro del contenedor
     depends_on:
       - backend
     networks:
@@ -43,7 +42,8 @@ services:
       - ./docker-config/nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./docker-config/nginx/default.conf:/etc/nginx/conf.d/default.conf
       - ./intranet-backend/public:/var/www/html/public
-      - backend_storage:/var/www/html/storage
+      - backend_storage:/var/www/html/storage:rw
+      - ./intranet-backend/storage/app/public:/var/www/storage:ro
     depends_on:
       - backend
       - frontend
