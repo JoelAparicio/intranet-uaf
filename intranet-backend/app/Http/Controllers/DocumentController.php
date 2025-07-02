@@ -177,6 +177,8 @@ class DocumentController extends Controller
         Storage::disk('public')->makeDirectory($folder);
         Storage::disk('public')->put("{$folder}/{$fileName}", $pdf);
 
+        chmod(storage_path("app/public/{$folder}/{$fileName}"), 0755);
+
         Documentos::updateOrCreate(
             ['id_solicitud' => $solicitud->id_solicitud],
             [
@@ -293,6 +295,8 @@ class DocumentController extends Controller
 
         Storage::disk('public')->makeDirectory($folder);
         Storage::disk('public')->put("{$folder}/{$fileName}", $pdf);
+
+        chmod(storage_path("app/public/{$folder}/{$fileName}"), 0755);
 
         Documentos::updateOrCreate(
             ['id_solicitud' => $solicitud->id_solicitud],
@@ -426,6 +430,8 @@ class DocumentController extends Controller
 
         Storage::disk('public')->makeDirectory($folder);
         Storage::disk('public')->put("{$folder}/{$fileName}", $pdf);
+
+        chmod(storage_path("app/public/{$folder}/{$fileName}"), 0755);
 
         Documentos::updateOrCreate(
             ['id_solicitud' => $solicitud->id_solicitud],
@@ -600,6 +606,8 @@ class DocumentController extends Controller
         Storage::disk('public')->makeDirectory($folder);
         Storage::disk('public')->put("{$folder}/{$fileName}", $pdf);
 
+        chmod(storage_path("app/public/{$folder}/{$fileName}"), 0755);
+
         Documentos::updateOrCreate(
             ['id_solicitud' => $solicitud->id_solicitud],
             [
@@ -732,6 +740,8 @@ class DocumentController extends Controller
 
         Storage::disk('public')->makeDirectory($folder);
         Storage::disk('public')->put("{$folder}/{$fileName}", $pdf);
+
+        chmod(storage_path("app/public/{$folder}/{$fileName}"), 0755);
 
         Documentos::updateOrCreate(
             ['id_solicitud' => $solicitud->id_solicitud],
