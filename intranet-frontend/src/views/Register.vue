@@ -191,6 +191,12 @@ export default {
 .form-floating > label {
   padding: 1rem 0.75rem;
   background-color: transparent !important;
+  backdrop-filter: none !important;
+}
+
+.form-floating > label::before,
+.form-floating > label::after {
+  display: none !important;
 }
 .btn-primary {
   background-color: #2b79c2;
