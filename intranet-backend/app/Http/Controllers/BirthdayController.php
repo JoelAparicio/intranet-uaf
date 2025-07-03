@@ -33,7 +33,7 @@ class BirthdayController extends Controller
         'birthday' => 'required|date_format:Y-m-d',
     ]);
 
-    $birthday = new Birthdays();
+    $birthday = new Birthday();
     $birthday->usuario = $request->input('nombre');
     $birthday->id_departamento = $request->input('departamento');
     $birthday->fecha_birthday = $request->input('birthday');
