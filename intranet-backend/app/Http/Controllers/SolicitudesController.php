@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\solicitudes;
+use App\Models\Solicitud;
 use App\Models\User;
 use App\Models\Aprobaciones;
 use Illuminate\Http\Request;
-use App\Models\Solicitud;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
