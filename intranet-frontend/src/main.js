@@ -16,12 +16,132 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 import Swal from 'sweetalert2';
 window.Swal = Swal; // Hacer disponible globalmente
 
+// ===== MOMENT.JS =====
+import moment from 'moment';
+import 'moment/locale/es'; // Configurar idioma español
+
+// ===== FONTAWESOME ICONOS =====
+import { library } from '@fortawesome/fontawesome-svg-core';
+import {
+    faCheck,
+    faEye,
+    faXmark,
+    faUserSecret,
+    faUserPlus,
+    faUsers,
+    faUserCheck,
+    faUserShield,
+    faUserTie,
+    faUser,
+    faUserClock,
+    faBan,
+    faUserPen,
+    faToggleOn,
+    faToggleOff,
+    faPersonCircleCheck,
+    faRightFromBracket,
+    faSpinner,
+    faKey,
+    faChevronRight,
+    faChevronLeft,
+    faUserMinus,
+    faShieldAlt,
+    faUserGraduate,
+    faPlus,
+    faTrash,
+    faSearch,
+    faUserSlash,
+    faTimes,
+    faExclamationTriangle,
+    faInfoCircle,
+    faSave,
+    faEllipsisV,
+    faThLarge,
+    faTable,
+    faHistory,
+    faUserTag,
+    faUserEdit,
+    faEnvelope,
+    faBriefcase,
+    faSitemap,
+    faIdCard,
+    faPhone,
+    faBuilding,
+    faClock,
+    faUsersSlash,
+    faBirthdayCake
+} from '@fortawesome/free-solid-svg-icons';
+
+import {
+    faFaceSmileWink,
+    faBell
+} from '@fortawesome/free-regular-svg-icons';
+
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+
+// Agregar los iconos a la librería
+library.add(
+    faCheck,
+    faXmark,
+    faEye,
+    faFaceSmileWink,
+    faUserSecret,
+    faBell,
+    faUserPlus,
+    faUsers,
+    faUserCheck,
+    faUserShield,
+    faUserTie,
+    faUser,
+    faUserClock,
+    faBan,
+    faUserPen,
+    faToggleOn,
+    faToggleOff,
+    faPersonCircleCheck,
+    faRightFromBracket,
+    faSpinner,
+    faKey,
+    faChevronRight,
+    faChevronLeft,
+    faUserMinus,
+    faShieldAlt,
+    faUserGraduate,
+    faPlus,
+    faTrash,
+    faSearch,
+    faUserSlash,
+    faTimes,
+    faExclamationTriangle,
+    faInfoCircle,
+    faSave,
+    faEllipsisV,
+    faThLarge,
+    faTable,
+    faHistory,
+    faUserTag,
+    faUserEdit,
+    faEnvelope,
+    faBriefcase,
+    faSitemap,
+    faIdCard,
+    faPhone,
+    faBuilding,
+    faClock,
+    faUsersSlash,
+    faBirthdayCake
+);
+
 // Crear aplicación
 const app = createApp(App);
+
+// ===== REGISTRO DE COMPONENTES GLOBALES =====
+app.component('font-awesome-icon', FontAwesomeIcon);
 
 // ===== CONFIGURACIÓN GLOBAL =====
 app.config.globalProperties.$apiUrl = process.env.VUE_APP_API_URL || 'http://172.19.115.44/api';
 app.config.globalProperties.$swal = Swal; // Configurar SweetAlert2 globalmente
+app.config.globalProperties.$moment = moment; // Configurar Moment.js globalmente
 
 // ===== FUNCIÓN DE INICIALIZACIÓN ASYNC =====
 async function initializeApp() {
@@ -116,7 +236,7 @@ async function mountApp() {
     // Inicializar aplicación
     await initializeApp();
 
-    // Montar Vue app
+    // Montar Vue app con plugins
     app.use(store)
         .use(router)
         .mount('#app');
