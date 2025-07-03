@@ -62,7 +62,7 @@ const actions = {
         try {
             commit('SET_LOADING', true);
 
-            const response = await axios.post('/api/login', credentials);
+            const response = await axios.post('/login', credentials);
 
             const { token, expires_at, user } = response.data;
 
@@ -97,7 +97,7 @@ const actions = {
         try {
             // Intentar logout en servidor (si hay token)
             if (state.token) {
-                await axios.post('/api/logout');
+                await axios.post('/logout');
             }
         } catch (error) {
             console.warn('⚠️ Error en logout del servidor:', error);
@@ -162,7 +162,7 @@ const actions = {
     // ===== REFRESCAR TOKEN MANUALMENTE =====
     async refreshToken({ commit }) {
         try {
-            const response = await axios.post('/api/refresh-token');
+            const response = await axios.post('/refresh-token');
 
             const { token, expires_at } = response.data;
 

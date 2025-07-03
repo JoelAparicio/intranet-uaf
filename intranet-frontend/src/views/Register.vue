@@ -120,7 +120,7 @@ export default {
           departamento: this.departamento
         };
 
-        const response = await axios.post('/api/register', userData);
+        const response = await axios.post('/register', userData);
 
         console.log('✅ Registro exitoso:', response.data);
 

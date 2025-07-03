@@ -3,7 +3,7 @@ import axios from 'axios';
 import store from '@/store';
 
 // ===== CONFIGURACIÓN BASE DE AXIOS =====
-axios.defaults.baseURL = process.env.VUE_APP_API_URL || 'http://172.19.115.44';
+axios.defaults.baseURL = (process.env.VUE_APP_API_URL || 'http://172.19.115.44') + '/api';
 axios.defaults.timeout = 10000; // 10 segundos
 axios.defaults.headers.common['Accept'] = 'application/json';
 axios.defaults.headers.common['Content-Type'] = 'application/json';
@@ -202,7 +202,7 @@ export const apiDelete = async (url, config = {}) => {
  */
 export const checkTokenValidity = async () => {
     try {
-        const response = await axios.get('/api/user');
+        const response = await axios.get('/user');
         return response.status === 200;
     } catch (error) {
         console.warn('⚠️ Token inválido:', error.response?.status);
@@ -252,3 +252,4 @@ export const getApiUrl = (endpoint) => {
     return `${baseUrl}/api/${endpoint}`;
 };
 
+console.log('🔧 Axios configurado correctamente');
