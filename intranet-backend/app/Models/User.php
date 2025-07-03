@@ -17,6 +17,7 @@ class User extends Authenticatable
 
     protected $table = 'usuarios';
 
+    // ✅ CAMBIO PRINCIPAL: De 'sanctum' a 'api'
     protected $guard_name = 'api';
 
     protected $fillable = [
@@ -60,6 +61,4 @@ class User extends Authenticatable
     {
         return $this->hasMany(Solicitud::class, 'id_usuario', 'id');
     }
-    
-
 }

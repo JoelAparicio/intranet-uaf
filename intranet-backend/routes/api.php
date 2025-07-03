@@ -22,8 +22,8 @@ use App\Http\Controllers\DocumentController;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-// Rutas protegidas por Sanctum
-Route::middleware('auth:sanctum')->group(function () {
+// ✅ CAMBIO PRINCIPAL: De 'auth:sanctum' a 'auth:api'
+Route::middleware('auth:api')->group(function () {
 
     // ==================== AUTENTICACIÓN ====================
     Route::post('/logout', [AuthController::class, 'logout']);

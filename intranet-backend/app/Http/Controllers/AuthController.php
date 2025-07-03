@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
-
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -35,25 +35,23 @@ class AuthController extends Controller
             'cedula' => $request->cedula,
             'extension' => $request->extension,
             'departamento' => $request->departamento,
-            'estado' => 'activo', // Valor por defecto
-            'deleted' => false, // Valor por defecto
+            'estado' => 'activo',
+            'tiempo_extra' => 0,
         ]);
 
-        // Mapa de departamentos a roles
+        // ✅ CORREGIDO: Mapa de departamentos a roles sin duplicados
         $departamentoRoles = [
-            1 => 'Director',
-            1 => 'Subdirector',
-            2 => 'Secretaria',
-            3 => 'Relaciones Públicas',
-            4 => 'Administración',
-            5 => 'Recursos Humanos',
-            6 => 'Análisis Operativo',
-            7 => 'Análisis Estratégico',
-            8 => 'Asesoría Legal',
-            9 => 'Contact Center',
-            10 => 'Cooperación Nacional e Internacional',
-            11 => 'Tecnología',
-            // Añade más departamentos y roles según sea necesario
+            1 => 'Director',                              // Despacho superior
+            2 => 'Secretaria',                           // Secretaría
+            3 => 'Relaciones Públicas',                  // Relaciones públicas
+            4 => 'Administración',                       // Administración
+            5 => 'Recursos Humanos',                     // Recursos humanos
+            6 => 'Análisis Operativo',                   // Análisis operativo
+            7 => 'Análisis Estratégico',                 // Análisis estratégico
+            8 => 'Asesoría Legal',                       // Asesoría legal
+            9 => 'Contact Center',                       // Contact Center
+            10 => 'Cooperación Internacional',           // Cooperación nacional e internacional
+            11 => 'Tecnología',                          // Tecnología
         ];
 
         // Asignar el rol basado en el departamento seleccionado
@@ -69,39 +67,98 @@ class AuthController extends Controller
         ], 200);
     }
 
-
     // Login de usuario
     public function login(Request $request)
     {
-        $request->validate([
-            'correo_electronico' => 'required|string|email',
-            'password' => 'required|string',
-        ]);
+        try {
+            $request->validate([
+                'correo_electronico' => 'required|string|email',
+                'password' => 'required|string',
+            ]);
 
-        // Buscar el usuario por correo electrónico
-        $user = User::where('correo_electronico', $request->correo_electronico)->first();
+            // Log para debugging
+            Log::info('Intento de login para: ' . $request->correo_electronico);
 
-        // Verificar si el usuario existe y la contraseña es correcta
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages([
-                'correo_electronico' => ['Las credenciales proporcionadas son incorrectas'],
-            ])->status(400);
+            // Buscar el usuario por correo electrónico
+            $user = User::where('correo_electronico', $request->correo_electronico)->first();
+
+            // ✅ CORREGIDO: Verificar si el usuario existe y la contraseña es correcta
+            if (!$user || !Hash::check($request->password, $user->password)) {
+                Log::warning('Login fallido para: ' . $request->correo_electronico);
+
+                // ✅ SINTAXIS CORREGIDA: Sin ->status()
+                return response()->json([
+                    'message' => 'Las credenciales proporcionadas son incorrectas',
+                    'errors' => [
+                        'correo_electronico' => ['Las credenciales proporcionadas son incorrectas']
+                    ]
+                ], 401);
+            }
+
+            // Verificar estado del usuario
+            if ($user->estado !== 'activo') {
+                Log::warning('Usuario inactivo intentando login: ' . $request->correo_electronico);
+                return response()->json([
+                    'message' => 'Usuario inactivo. Contacte al administrador.',
+                ], 403);
+            }
+
+            // Eliminar tokens existentes antes de crear uno nuevo
+            $user->tokens()->delete();
+
+            // Crear token con nombre específico
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            Log::info('Login exitoso para: ' . $request->correo_electronico);
+
+            return response()->json([
+                'message' => 'Has entrado correctamente',
+                'token' => $token,
+                'user' => [
+                    'id' => $user->id,
+                    'nombre' => $user->nombre,
+                    'correo_electronico' => $user->correo_electronico,
+                    'cargo' => $user->cargo,
+                    'departamento' => $user->departamento,
+                ]
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Error de validación',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error en login: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error interno del servidor',
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno'
+            ], 500);
         }
-
-        return response()->json([
-            'message' => 'Has entrado correctamente',
-            'token' => $user->createToken('Auth Token')->plainTextToken,
-        ], 200);
     }
 
     // Logout de usuario
     public function logout(Request $request)
     {
-        $request->user()->tokens()->delete();
+        try {
+            // Verificar que el usuario esté autenticado
+            if (!$request->user()) {
+                return response()->json(['message' => 'Usuario no autenticado'], 401);
+            }
 
-        return response()->json(['message' => 'Has salido correctamente'], 200);
+            // Eliminar todos los tokens del usuario
+            $request->user()->tokens()->delete();
+
+            Log::info('Logout exitoso para usuario ID: ' . $request->user()->id);
+
+            return response()->json(['message' => 'Has salido correctamente'], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error en logout: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error al cerrar sesión',
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno'
+            ], 500);
+        }
     }
-
 }
-
-
