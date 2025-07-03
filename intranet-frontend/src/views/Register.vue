@@ -177,7 +177,6 @@ export default {
 </script>
 
 <style scoped>
-/* Mantener los mismos estilos */
 .container-fluid {
   background-color: #f8f9fa;
 }

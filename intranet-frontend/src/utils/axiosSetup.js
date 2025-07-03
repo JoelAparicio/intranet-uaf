@@ -3,7 +3,7 @@ import axios from 'axios';
 import store from '@/store';
 
 // ===== CONFIGURACIÓN BASE DE AXIOS =====
-axios.defaults.baseURL = (process.env.VUE_APP_API_URL || 'http://172.19.115.44') + '/api';
+axios.defaults.baseURL = process.env.VUE_APP_API_URL || 'http://172.19.115.44/api';
 axios.defaults.timeout = 10000; // 10 segundos
 axios.defaults.headers.common['Accept'] = 'application/json';
 axios.defaults.headers.common['Content-Type'] = 'application/json';
@@ -22,6 +22,7 @@ axios.interceptors.request.use(
             console.log('🚀 Axios Request:', {
                 method: config.method?.toUpperCase(),
                 url: config.url,
+                fullURL: config.baseURL + config.url,
                 headers: config.headers,
                 data: config.data
             });
@@ -248,8 +249,9 @@ export const setupTokenTimer = () => {
  * @returns {string} - URL completa
  */
 export const getApiUrl = (endpoint) => {
-    const baseUrl = process.env.VUE_APP_API_URL || 'http://172.19.115.44';
-    return `${baseUrl}/api/${endpoint}`;
+    const baseUrl = process.env.VUE_APP_API_URL || 'http://172.19.115.44/api';
+    return `${baseUrl}/${endpoint}`;
 };
 
 console.log('🔧 Axios configurado correctamente');
+console.log('🔍 BASE URL:', process.env.VUE_APP_API_URL || 'http://172.19.115.44/api');

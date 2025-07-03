@@ -20,7 +20,7 @@ window.Swal = Swal; // Hacer disponible globalmente
 const app = createApp(App);
 
 // ===== CONFIGURACIÓN GLOBAL =====
-app.config.globalProperties.$apiUrl = process.env.VUE_APP_API_URL || 'http://172.19.115.44';
+app.config.globalProperties.$apiUrl = process.env.VUE_APP_API_URL || 'http://172.19.115.44/api';
 app.config.globalProperties.$swal = Swal; // Configurar SweetAlert2 globalmente
 
 // ===== FUNCIÓN DE INICIALIZACIÓN ASYNC =====
@@ -47,7 +47,7 @@ router.beforeEach(async (to, from, next) => {
     const isLoading = store.getters['auth/isLoading'];
 
     // Rutas que NO requieren autenticación
-    const publicRoutes = ['Login', 'login', 'Register', 'no-acceso']; // CORREGIDO: Agregar ambas variantes
+    const publicRoutes = ['Login', 'login', 'Register', 'no-acceso'];
     const requiresAuth = !publicRoutes.includes(to.name);
 
     console.log('🧭 Navigation guard:', {

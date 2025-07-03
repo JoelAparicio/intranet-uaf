@@ -56,7 +56,7 @@ export default {
     }
   },
   computed: {
-    ...mapGetters('auth', ['isAuthenticated', 'isLoading'])
+    ...mapGetters('auth', ['isAuthenticated'])
   },
   methods: {
     async submitForm() {
@@ -74,7 +74,7 @@ export default {
           password: this.password
         };
 
-        // ✅ CORREGIDO: Usar el store de auth correctamente
+        // Usar el store de auth correctamente
         const result = await this.$store.dispatch('auth/login', credentials);
 
         console.log('📝 Resultado del login:', result);
@@ -82,7 +82,7 @@ export default {
         if (result.success) {
           console.log('✅ Login exitoso');
 
-          // ✅ SWEETALERT: Mostrar éxito
+          // SweetAlert de éxito
           this.$swal.fire({
             icon: 'success',
             title: '¡Bienvenido!',
@@ -120,7 +120,7 @@ export default {
           errorMessage = error.message;
         }
 
-        // ✅ SWEETALERT: Mostrar error
+        // SweetAlert de error
         this.$swal.fire({
           icon: 'error',
           title: 'Error de autenticación',
