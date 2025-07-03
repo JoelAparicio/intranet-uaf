@@ -1,7 +1,7 @@
 <template>
   <div class="container-fluid vh-100 d-flex align-items-center justify-content-center">
     <div class="row justify-content-center w-100">
-      <div class="col-md-10 col-lg-8 custom-width">
+      <div class="col-md-7 col-lg-5 custom-width">
         <div class="card shadow-lg">
           <div class="card-body p-4">
             <h2 class="card-title text-center mb-4 fs-3">Formulario de registro</h2>
@@ -184,7 +184,13 @@ export default {
   border-radius: 1rem;
 }
 .custom-width {
-  max-width: 750px;
+  max-width: 500px;
+}
+
+/* Corregir fondo de las etiquetas flotantes */
+.form-floating > label {
+  padding: 1rem 0.75rem;
+  background-color: transparent !important;
 }
 .btn-primary {
   background-color: #2b79c2;
