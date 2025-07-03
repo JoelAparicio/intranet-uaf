@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
-    // Registro de nuevo usuario
+    // Registro de nuevo usuario (SIN CAMBIOS)
     public function register(Request $request)
     {
         $request->validate([
@@ -67,7 +67,7 @@ class AuthController extends Controller
         ], 200);
     }
 
-    // Login de usuario
+    // Login de usuario - MEJORADO pero compatible
     public function login(Request $request)
     {
         try {
@@ -103,17 +103,28 @@ class AuthController extends Controller
                 ], 403);
             }
 
-            // Eliminar tokens existentes antes de crear uno nuevo
-            $user->tokens()->delete();
+            // ===== MEJORA CRÍTICA: TOKEN MANAGEMENT ROBUSTO =====
+            // Eliminar tokens anteriores del mismo usuario
+            $user->tokens()->where('name', 'auth_token')->delete();
 
-            // Crear token con nombre específico
-            $token = $user->createToken('auth_token')->plainTextToken;
+            // Crear token con expiración específica
+            $expirationMinutes = config('sanctum.expiration', 1440); // 24 horas por defecto
+            $expiresAt = now()->addMinutes($expirationMinutes);
 
-            Log::info('Login exitoso para: ' . $request->correo_electronico);
+            // ✅ MANTENER COMPATIBILIDAD: Usar 'auth_token' como en tu código
+            $token = $user->createToken('auth_token', ['*'], $expiresAt)->plainTextToken;
 
+            Log::info('Login exitoso para: ' . $request->correo_electronico, [
+                'user_id' => $user->id,
+                'token_expires_at' => $expiresAt->toDateTimeString(),
+                'expiration_minutes' => $expirationMinutes
+            ]);
+
+            // ✅ MANTENER COMPATIBILIDAD: Misma estructura de respuesta
             return response()->json([
                 'message' => 'Has entrado correctamente',
                 'token' => $token,
+                'expires_at' => $expiresAt->toISOString(), // ✅ NUEVO: Para frontend
                 'user' => [
                     'id' => $user->id,
                     'nombre' => $user->nombre,
@@ -137,7 +148,58 @@ class AuthController extends Controller
         }
     }
 
-    // Logout de usuario
+    // ===== NUEVO MÉTODO: VERIFICAR TOKEN (Compatible con tu estructura) =====
+    public function verifyToken(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json([
+                    'valid' => false,
+                    'message' => 'Token inválido'
+                ], 401);
+            }
+
+            // Verificar si el token actual no ha expirado
+            $currentToken = $user->currentAccessToken();
+
+            if (!$currentToken) {
+                return response()->json([
+                    'valid' => false,
+                    'message' => 'Token no encontrado'
+                ], 401);
+            }
+
+            // Verificar expiración manual
+            if ($currentToken->expires_at && $currentToken->expires_at->isPast()) {
+                return response()->json([
+                    'valid' => false,
+                    'message' => 'Token expirado'
+                ], 401);
+            }
+
+            return response()->json([
+                'valid' => true,
+                'message' => 'Token válido',
+                'user' => [
+                    'id' => $user->id,
+                    'nombre' => $user->nombre,
+                    'correo_electronico' => $user->correo_electronico,
+                ],
+                'expires_at' => $currentToken->expires_at ? $currentToken->expires_at->toISOString() : null
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error en verifyToken: ' . $e->getMessage());
+            return response()->json([
+                'valid' => false,
+                'message' => 'Error al verificar token'
+            ], 500);
+        }
+    }
+
+    // Logout de usuario - MEJORADO pero compatible
     public function logout(Request $request)
     {
         try {
@@ -146,10 +208,15 @@ class AuthController extends Controller
                 return response()->json(['message' => 'Usuario no autenticado'], 401);
             }
 
-            // Eliminar todos los tokens del usuario
-            $request->user()->tokens()->delete();
+            $userId = $request->user()->id;
 
-            Log::info('Logout exitoso para usuario ID: ' . $request->user()->id);
+            // ===== MEJORADO: Eliminar solo el token actual =====
+            $currentToken = $request->user()->currentAccessToken();
+            if ($currentToken) {
+                $currentToken->delete();
+            }
+
+            Log::info('Logout exitoso para usuario ID: ' . $userId);
 
             return response()->json(['message' => 'Has salido correctamente'], 200);
 

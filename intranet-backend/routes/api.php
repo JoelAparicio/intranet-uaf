@@ -28,6 +28,13 @@ Route::middleware('auth:api')->group(function () {
     // ==================== AUTENTICACIÓN ====================
     Route::post('/logout', [AuthController::class, 'logout']);
 
+    // ===== NUEVA RUTA DE VERIFICACIÓN DE TOKEN =====
+    Route::get('/verify-token', [AuthController::class, 'verifyToken']);
+
+    // ===== NUEVAS RUTAS DE TOKEN MANAGEMENT =====
+    Route::get('/verify-token', [AuthController::class, 'verifyToken']);
+    Route::post('/refresh-token', [AuthController::class, 'refreshToken']);
+
     // ==================== USUARIO ====================
     // Información del usuario autenticado
     Route::get('/user', [UserController::class, 'information_user']);
