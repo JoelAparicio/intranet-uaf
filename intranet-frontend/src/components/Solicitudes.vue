@@ -809,9 +809,13 @@ export default {
             timer: 2000,
             showConfirmButton: false
           }).then(() => {
+            // Cerrar modal primero
             this.closeModal();
-            // Emitir evento para actualizar la vista padre si es necesario
-            this.$emit('solicitud-enviada');
+
+            // Esperar un poco para que el modal se cierre completamente
+            setTimeout(() => {
+              location.reload();
+            }, 300); // Reducido a 300ms para que sea más rápido
           });
         } else {
           this.$swal.fire({
