@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Aprobaciones;
-use App\Models\Solicitudes;
+use App\Models\Solicitud;
 use Illuminate\Http\Request;
 use App\Http\Controllers\DocumentController;
 use App\Jobs\GenerarPdfSolicitudJob;
