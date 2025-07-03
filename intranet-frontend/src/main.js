@@ -41,8 +41,8 @@ router.beforeEach(async (to, from, next) => {
     const isAuthenticated = store.getters['auth/isAuthenticated'];
     const isLoading = store.getters['auth/isLoading'];
 
-    // Rutas que no requieren autenticación
-    const publicRoutes = ['Login', 'Register'];
+    // Rutas que NO requieren autenticación
+    const publicRoutes = ['Login', 'login', 'Register', 'no-acceso']; // CORREGIDO: Agregar ambas variantes
     const requiresAuth = !publicRoutes.includes(to.name);
 
     console.log('🧭 Navigation guard:', {
@@ -100,7 +100,7 @@ router.beforeEach(async (to, from, next) => {
     // Si está autenticado y trata de ir a login/register, redirigir a dashboard
     if (isAuthenticated && publicRoutes.includes(to.name)) {
         console.log('↩️ Usuario autenticado - redirigiendo a dashboard');
-        return next({ name: 'MiEspacio' }); // O tu ruta de dashboard
+        return next({ name: 'MiEspacio' });
     }
 
     next();

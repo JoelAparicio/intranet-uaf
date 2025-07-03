@@ -13,54 +13,59 @@ import Administradores from '../views/Administradores.vue';
 const routes = [
   {
     path: '/',
-    name: 'inicio',
+    name: 'Login', // CAMBIADO: Usar nombre consistente
     component: Login
   },
   {
     path: '/login',
-    name: 'login',
+    name: 'login', // Ruta alternativa
     component: Login
   },
   {
     path: '/home',
     name: 'home',
     component: Home,
-    meta: { requiresAuth: true }, // Protección para la ruta principal 'home'
+    meta: { requiresAuth: true },
     children: [
       {
-        path: '/home/inicio', // Esta es la subruta de 'home'
+        path: '/home/inicio',
         name: 'homeinicio',
         component: Inicio,
+        meta: { requiresAuth: true }
       },
       {
-        path: '/home/miespacio', // Esta es la subruta de 'home'
-        name: 'miespacio',
+        path: '/home/miespacio',
+        name: 'MiEspacio', // CAMBIADO: Usar nombre consistente con main.js
         component: MiEspacio,
+        meta: { requiresAuth: true }
       },
       {
         path: '/home/portalcolaboradores',
         name: 'portalcolaboradores',
         component: PortalColaboradores,
+        meta: { requiresAuth: true }
       },
       {
         path: '/home/portalaprobaciones',
         name: 'portalaprobaciones',
         component: PortalAprobaciones,
+        meta: { requiresAuth: true }
       },
       {
         path: '/home/administradores',
         name: 'administradores',
         component: Administradores,
+        meta: { requiresAuth: true }
       },
     ]
   },
   {
     path: '/register',
-    name: 'register',
+    name: 'Register', // CAMBIADO: Usar nombre consistente
     component: Register
   },
   {
-    path: '/no-acceso', // Corregido el nombre de la ruta
+    path: '/no-acceso',
     name: 'no-acceso',
     component: NoAcceso
   }
@@ -71,16 +76,7 @@ const router = createRouter({
   routes
 })
 
-// Guard de navegación global
-router.beforeEach((to, from, next) => {
-  // Si la ruta requiere autenticación y el usuario no está autenticado
-  if (to.matched.some(record => record.meta.requiresAuth) && !store.getters.isAuthenticated) {
-    // Redirigir a la página de inicio de sesión
-    next({ name: 'no-acceso' });
-  } else {
-    // De lo contrario, continuar navegando
-    next();
-  }
-});
+// ELIMINAR: Este guard ya está en main.js, no duplicar
+// Solo usar el guard del main.js que es más completo
 
 export default router
