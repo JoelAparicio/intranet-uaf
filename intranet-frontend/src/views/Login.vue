@@ -14,12 +14,10 @@
                 <label for="correo_electronico">Correo Electrónico</label>
               </div>
               <div class="form-floating mb-3">
-                <input type="password" class="form-control" id="password" v-model="password" placeholder="Contraseña"
-                       required>
+                <input type="password" class="form-control" id="password" v-model="password" placeholder="Contraseña" required>
                 <label for="password">Contraseña</label>
               </div>
               <div class="d-grid mb-3">
-                <!-- ✅ AÑADIR: Loading state con spinner -->
                 <button type="submit" class="btn btn-primary btn-lg py-2" :disabled="isLoading">
                   <span v-if="isLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
                   {{ isLoading ? 'Iniciando sesión...' : 'Entrar' }}
@@ -29,8 +27,7 @@
                 {{ error }}
               </div>
               <div class="text-center mt-3">
-                <a href="#" @click.prevent="redirectToRegister" class="underline-animation">¿No tienes una cuenta?
-                  Regístrate</a>
+                <a href="#" @click.prevent="redirectToRegister" class="underline-animation">¿No tienes una cuenta? Regístrate</a>
               </div>
             </form>
           </div>
@@ -42,7 +39,7 @@
 </template>
 
 <script>
-import {mapActions, mapState} from 'vuex'
+import { mapGetters } from 'vuex'
 import Footer from '@/components/Footer.vue'
 
 export default {
@@ -55,16 +52,15 @@ export default {
       correo_electronico: '',
       password: '',
       error: '',
-      isLoading: false // ✅ AÑADIR: Estado de loading
+      isLoading: false
     }
   },
   computed: {
-    ...mapState(['authStatus'])
+    ...mapGetters('auth', ['isAuthenticated', 'isLoading'])
   },
   methods: {
-    ...mapActions(['login']),
     async submitForm() {
-      // ✅ PREVENIR: Doble submit
+      // Prevenir doble submit
       if (this.isLoading) return;
 
       this.isLoading = true;
@@ -73,53 +69,45 @@ export default {
       try {
         console.log('🔐 Iniciando proceso de login...');
 
-        const user = {
+        const credentials = {
           correo_electronico: this.correo_electronico,
           password: this.password
+        };
+
+        // ✅ CORREGIDO: Usar el store de auth correctamente
+        const result = await this.$store.dispatch('auth/login', credentials);
+
+        console.log('📝 Resultado del login:', result);
+
+        if (result.success) {
+          console.log('✅ Login exitoso');
+
+          // ✅ SWEETALERT: Mostrar éxito
+          this.$swal.fire({
+            icon: 'success',
+            title: '¡Bienvenido!',
+            text: `Hola ${result.user.nombre}, has iniciado sesión correctamente`,
+            timer: 2000,
+            timerProgressBar: true,
+            showConfirmButton: false
+          });
+
+          // Navegar después de un breve delay
+          setTimeout(() => {
+            this.$router.push({ name: 'MiEspacio' });
+          }, 2000);
+
+        } else {
+          // El login falló
+          throw new Error(result.error || 'Error en el login');
         }
-
-        // ✅ ESPERAR: A que el login complete totalmente
-        const response = await this.login(user);
-
-        console.log('✅ Login exitoso, respuesta:', response.data);
-
-        // ✅ VERIFICAR: Que el token se guardó correctamente
-        const savedToken = localStorage.getItem('auth_token');
-
-        if (!savedToken) {
-          throw new Error('Token no se guardó correctamente en localStorage');
-        }
-
-        console.log('✅ Token verificado en localStorage');
-
-        // ✅ SWEETALERT: Mostrar éxito antes de navegar
-        this.$swal.fire({
-          icon: 'success',
-          title: '¡Bienvenido!',
-          text: 'Has iniciado sesión correctamente',
-          timer: 1500,
-          timerProgressBar: true,
-          showConfirmButton: false
-        });
-
-        // ✅ ESPERAR: Un momento antes de navegar para asegurar que todo se guarde
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        console.log('🚀 Navegando a miespacio...');
-
-        // Esperar a que termine la animación de SweetAlert
-        setTimeout(() => {
-          this.$router.push({name: 'miespacio'});
-        }, 1500);
 
       } catch (error) {
         console.error('❌ Error en login:', error);
 
-        // Limpiar cualquier token parcial
-        localStorage.removeItem('auth_token');
-
         let errorMessage = 'Error al iniciar sesión.';
 
+        // Manejar diferentes tipos de errores
         if (error.response) {
           if (error.response.status === 401) {
             errorMessage = 'Correo electrónico o contraseña incorrectos.';
@@ -141,12 +129,14 @@ export default {
         });
 
         this.error = errorMessage;
+
       } finally {
         this.isLoading = false;
       }
     },
+
     redirectToRegister() {
-      this.$router.push({name: 'register'})
+      this.$router.push({ name: 'Register' });
     }
   }
 }

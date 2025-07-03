@@ -12,11 +12,16 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
+// ===== SWEETALERT2 =====
+import Swal from 'sweetalert2';
+window.Swal = Swal; // Hacer disponible globalmente
+
 // Crear aplicación
 const app = createApp(App);
 
 // ===== CONFIGURACIÓN GLOBAL =====
 app.config.globalProperties.$apiUrl = process.env.VUE_APP_API_URL || 'http://172.19.115.44';
+app.config.globalProperties.$swal = Swal; // Configurar SweetAlert2 globalmente
 
 // ===== FUNCIÓN DE INICIALIZACIÓN ASYNC =====
 async function initializeApp() {
