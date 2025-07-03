@@ -408,6 +408,7 @@ import moment from 'moment';
 import 'moment/locale/es';
 import { Modal } from 'bootstrap';
 import Swal from 'sweetalert2';
+import { mapGetters } from 'vuex';
 
 export default {
   name: 'HistorialSolicitudes',
@@ -465,6 +466,9 @@ export default {
   },
 
   computed: {
+    // ✅ CORREGIDO: Usar mapGetters del store
+    ...mapGetters('auth', ['token', 'isAuthenticated']),
+
     solicitudesFiltradas() {
       return this.solicitudes.filter(solicitud => {
         const cumpleTipo = this.filtroTipo ? solicitud.tipo_solicitud.id_tipo_solicitud === parseInt(this.filtroTipo) : true;
@@ -516,15 +520,30 @@ export default {
     async fetchSolicitudes() {
       this.isLoading = true;
       try {
-        const token = localStorage.getItem('auth_token');
-        const response = await axios.get('historial_solicitud', {
+        // ✅ CORREGIDO: Verificar autenticación y usar token del store
+        if (!this.token) {
+          await this.$store.dispatch('auth/logout');
+          this.$router.push('/login');
+          return;
+        }
+
+        // ✅ CORREGIDO: URL correcta con '/'
+        const response = await axios.get('/historial_solicitud', {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${this.token}`
           }
         });
         this.solicitudes = response.data;
       } catch (error) {
         console.error('Error fetching solicitudes', error);
+
+        // ✅ CORREGIDO: Manejar error 401 con logout del store
+        if (error.response?.status === 401) {
+          await this.$store.dispatch('auth/logout');
+          this.$router.push('/login');
+          return;
+        }
+
         Swal.fire({
           icon: 'error',
           title: 'Error',
@@ -537,10 +556,12 @@ export default {
 
     async fetchTiposSolicitudes() {
       try {
-        const token = localStorage.getItem('auth_token');
-        const response = await axios.get('listar_solicitud', {
+        // ✅ CORREGIDO: Verificar token y URL correcta
+        if (!this.token) return;
+
+        const response = await axios.get('/listar_solicitud', {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${this.token}`
           }
         });
         this.tiposSolicitudes = response.data;
@@ -557,17 +578,17 @@ export default {
       this.pdfUrl = null;
 
       try {
-        const token = localStorage.getItem('auth_token');
-        const response = await axios.post('obtener_ruta_pdf', {
+        // ✅ CORREGIDO: URL correcta y token del store
+        const response = await axios.post('/obtener_ruta_pdf', {
           id_solicitud: solicitud.id_solicitud
         }, {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${this.token}`
           }
         });
 
         if (response.data.status && response.data.pdf_file_path) {
-          // CAMBIO AQUÍ: Construir la URL completa como en Lista_aprobaciones.vue
+          // Construir la URL completa del PDF
           this.pdfUrl = axios.defaults.baseURL.replace('/api', '') + response.data.pdf_file_path;
           this.pdfModalInstance.show();
         } else {
@@ -614,8 +635,6 @@ export default {
       this.editErrors = {};
 
       try {
-        const token = localStorage.getItem('auth_token');
-
         const datosActualizacion = {
           fecha_inicio: this.solicitudEditando.fecha_inicio,
           fecha_fin: this.solicitudEditando.fecha_fin,
@@ -631,11 +650,12 @@ export default {
           datosActualizacion.justificacion = this.solicitudEditando.justificacion;
         }
 
-        const response = await axios.put(`actualizar_solicitud/${this.solicitudEditando.id_solicitud}`,
+        // ✅ CORREGIDO: URL correcta y token del store
+        const response = await axios.put(`/actualizar_solicitud/${this.solicitudEditando.id_solicitud}`,
             datosActualizacion,
             {
               headers: {
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${this.token}`
               }
             }
         );

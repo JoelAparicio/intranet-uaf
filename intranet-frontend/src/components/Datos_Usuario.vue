@@ -372,6 +372,7 @@
 import axios from 'axios'
 import { Modal } from 'bootstrap'
 import Swal from 'sweetalert2'
+import { mapGetters } from 'vuex'
 
 export default {
   name: 'DatosUsuario',
@@ -420,6 +421,10 @@ export default {
     }
   },
 
+  computed: {
+    ...mapGetters('auth', ['token', 'isAuthenticated'])
+  },
+
   created() {
     this.fetchUserData()
   },
@@ -431,15 +436,16 @@ export default {
     async fetchUserData() {
       this.isLoading = true
       try {
-        const token = localStorage.getItem('auth_token')
-        if (!token) {
+        // ✅ CORREGIDO: Usar token del store de Vuex
+        if (!this.token) {
           this.$router.push('/login')
           return
         }
 
-        const response = await axios.get('information_user', {
+        // ✅ CORREGIDO: URL correcta de la API
+        const response = await axios.get('/information_user', {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${this.token}`
           }
         })
 
@@ -464,7 +470,7 @@ export default {
         console.error('Error al cargar datos del usuario:', error)
 
         if (error.response?.status === 401) {
-          localStorage.removeItem('auth_token')
+          await this.$store.dispatch('auth/logout')
           this.$router.push('/login')
           return
         }
@@ -487,12 +493,10 @@ export default {
       this.editErrors = {}
 
       try {
-        const token = localStorage.getItem('auth_token')
-
-        // Actualizar datos básicos del usuario
-        const updateResponse = await axios.put('edit_information', this.editUser, {
+        // ✅ CORREGIDO: Usar token del store
+        const updateResponse = await axios.put('/edit_information', this.editUser, {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${this.token}`
           }
         })
 
@@ -505,27 +509,23 @@ export default {
           const formData = new FormData()
           formData.append('firma', this.editFirmaFile)
 
-          const firmaResponse = await axios.post('upload-firma', formData, {
+          const firmaResponse = await axios.post('/upload-firma', formData, {
             headers: {
-              'Authorization': `Bearer ${token}`,
+              'Authorization': `Bearer ${this.token}`,
               'Content-Type': 'multipart/form-data'
             }
           })
 
           if (firmaResponse.data.success && firmaResponse.data.data?.user) {
-            // Actualizar datos del usuario con la nueva firma
             Object.assign(this.user, firmaResponse.data.data.user)
           }
         }
 
-        // Actualizar datos locales
         Object.assign(this.user, this.editUser)
 
-        // Cerrar modal de forma más robusta
         this.closeModal('editModal')
         this.resetEditForm()
 
-        // Mostrar mensaje de éxito
         await Swal.fire({
           icon: 'success',
           title: 'Datos actualizados',
@@ -536,7 +536,6 @@ export default {
           allowEscapeKey: true
         })
 
-        // Recargar datos para asegurar sincronización
         await this.fetchUserData()
 
       } catch (error) {
@@ -555,7 +554,6 @@ export default {
         })
       } finally {
         this.isUpdating = false
-        // Asegurar que no queden modales abiertos
         this.removeModalBackdrops()
       }
     },
@@ -626,10 +624,10 @@ export default {
       formData.append('firma', this.firmaFile)
 
       try {
-        const token = localStorage.getItem('auth_token')
-        const response = await axios.post('upload-firma', formData, {
+        // ✅ CORREGIDO: URL correcta y token del store
+        const response = await axios.post('/upload-firma', formData, {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${this.token}`,
             'Content-Type': 'multipart/form-data'
           }
         })
@@ -639,20 +637,16 @@ export default {
         // Actualizar el usuario con la nueva firma
         if (response.data.success && response.data.data) {
           if (response.data.data.user) {
-            // Actualizar con los datos completos del usuario desde el servidor
             Object.assign(this.user, response.data.data.user)
           } else if (response.data.data.firma_path) {
-            // Actualizar solo la firma
             this.user.firma_path = response.data.data.firma_path
             this.user.firma_url = response.data.data.firma_url
           }
         }
 
-        // Cerrar modal de forma más robusta
         this.closeModal('firmaModal')
         this.resetFirmaForm()
 
-        // Mostrar mensaje de éxito
         await Swal.fire({
           icon: 'success',
           title: this.user.firma_path ? 'Firma actualizada' : 'Firma registrada',
@@ -663,7 +657,6 @@ export default {
           allowEscapeKey: true
         })
 
-        // Recargar datos para asegurar sincronización
         await this.fetchUserData()
 
       } catch (error) {
@@ -687,7 +680,6 @@ export default {
         })
       } finally {
         this.isUploading = false
-        // Asegurar que no queden modales abiertos
         this.removeModalBackdrops()
       }
     },
@@ -724,7 +716,6 @@ export default {
             modalInstance.hide()
           }
 
-          // Forzar el cierre del modal
           modalElement.classList.remove('show')
           modalElement.style.display = 'none'
           modalElement.setAttribute('aria-hidden', 'true')
@@ -732,17 +723,14 @@ export default {
           modalElement.removeAttribute('role')
         }
 
-        // Remover backdrops que puedan haber quedado
         this.removeModalBackdrops()
 
-        // Restaurar el scroll del body
         document.body.classList.remove('modal-open')
         document.body.style.overflow = ''
         document.body.style.paddingRight = ''
 
       } catch (error) {
         console.error('Error al cerrar modal:', error)
-        // Método de emergencia - forzar limpieza
         this.forceCloseAllModals()
       }
     },
@@ -761,12 +749,10 @@ export default {
      * Método de emergencia para cerrar todos los modales
      */
     forceCloseAllModals() {
-      // Remover todas las clases y elementos relacionados con modales
       document.body.classList.remove('modal-open')
       document.body.style.overflow = ''
       document.body.style.paddingRight = ''
 
-      // Cerrar todos los modales
       const modals = document.querySelectorAll('.modal')
       modals.forEach(modal => {
         modal.classList.remove('show')
@@ -776,7 +762,6 @@ export default {
         modal.removeAttribute('role')
       })
 
-      // Remover todos los backdrops
       this.removeModalBackdrops()
     }
   }

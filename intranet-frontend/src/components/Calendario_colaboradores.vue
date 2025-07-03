@@ -118,9 +118,10 @@
                   <button type="button" class="btn btn-secondary" @click="closeModal">
                     Cancelar
                   </button>
-                  <button type="submit" class="btn btn-primary">
-                    <font-awesome-icon :icon="['fas', 'check']" class="me-2" />
-                    Guardar
+                  <button type="submit" class="btn btn-primary" :disabled="isSubmitting">
+                    <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-2"></span>
+                    <font-awesome-icon v-else :icon="['fas', 'check']" class="me-2" />
+                    {{ isSubmitting ? 'Guardando...' : 'Guardar' }}
                   </button>
                 </div>
               </form>
@@ -202,8 +203,16 @@
 
               <!-- Directory Content -->
               <div class="directory-content">
+                <!-- Loading State -->
+                <div v-if="isLoadingDirectorio" class="text-center py-5">
+                  <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando directorio...</span>
+                  </div>
+                  <p class="mt-2 text-muted">Cargando directorio de colaboradores...</p>
+                </div>
+
                 <!-- Cards View -->
-                <div v-if="viewMode === 'cards'" class="row g-3">
+                <div v-else-if="viewMode === 'cards'" class="row g-3">
                   <div
                       v-for="usuario in filteredDirectorio"
                       :key="usuario.correo_electronico"
@@ -237,7 +246,7 @@
                 </div>
 
                 <!-- Table View -->
-                <div v-else class="table-responsive">
+                <div v-else-if="!isLoadingDirectorio" class="table-responsive">
                   <table class="table table-hover">
                     <thead>
                     <tr>
@@ -270,7 +279,7 @@
                 </div>
 
                 <!-- Empty State -->
-                <div v-if="filteredDirectorio.length === 0" class="text-center py-5">
+                <div v-if="!isLoadingDirectorio && filteredDirectorio.length === 0" class="text-center py-5">
                   <font-awesome-icon :icon="['fas', 'search']" class="text-muted mb-3" style="font-size: 3rem;" />
                   <h5>No se encontraron colaboradores</h5>
                   <p class="text-muted">Intenta ajustar los filtros de búsqueda</p>
@@ -307,6 +316,7 @@ import axios from 'axios'
 import Swal from 'sweetalert2'
 import moment from 'moment'
 import * as XLSX from 'xlsx'
+import { mapGetters } from 'vuex'
 
 export default defineComponent({
   components: {
@@ -329,9 +339,26 @@ export default defineComponent({
 
     return { calendarRef, getCalendarTitle };
   },
+
+  // ✅ CORREGIDO: Añadir mapGetters para acceder al store
+  computed: {
+    ...mapGetters('auth', ['token', 'isAuthenticated']),
+
+    filteredDirectorio() {
+      return this.directorio.filter(usuario => {
+        const matchesSearchTerm = usuario.nombre.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+            usuario.correo_electronico.toLowerCase().includes(this.searchTerm.toLowerCase());
+        const matchesDepartamento = this.filterDepartamento ? usuario.departamento === this.filterDepartamento : true;
+        return matchesSearchTerm && matchesDepartamento;
+      });
+    }
+  },
+
   data() {
     return {
       isLoading: true,
+      isSubmitting: false,
+      isLoadingDirectorio: false,
       eventGuid: 0,
       showModal: false,
       showDirectorioModal: false,
@@ -416,6 +443,12 @@ export default defineComponent({
     }
   },
   mounted() {
+    // Verificar autenticación
+    if (!this.isAuthenticated) {
+      this.$router.push('/login');
+      return;
+    }
+
     // Simulate loading
     setTimeout(() => {
       this.isLoading = false;
@@ -427,17 +460,27 @@ export default defineComponent({
       });
     }, 500);
   },
-  computed: {
-    filteredDirectorio() {
-      return this.directorio.filter(usuario => {
-        const matchesSearchTerm = usuario.nombre.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-            usuario.correo_electronico.toLowerCase().includes(this.searchTerm.toLowerCase());
-        const matchesDepartamento = this.filterDepartamento ? usuario.departamento === this.filterDepartamento : true;
-        return matchesSearchTerm && matchesDepartamento;
-      });
-    }
-  },
   methods: {
+    // ✅ CORREGIDO: Método para obtener headers de autorización
+    getAuthHeaders() {
+      if (!this.token) {
+        throw new Error('No token available');
+      }
+      return {
+        'Authorization': `Bearer ${this.token}`
+      };
+    },
+
+    // ✅ CORREGIDO: Método para manejar errores de autenticación
+    async handleAuthError(error) {
+      if (error.response?.status === 401) {
+        await this.$store.dispatch('auth/logout');
+        this.$router.push('/login');
+        return true;
+      }
+      return false;
+    },
+
     closeModal() {
       this.showModal = false;
       this.newBirthday = { nombre: '', departamento: '', birthday: '' };
@@ -521,14 +564,14 @@ export default defineComponent({
         this.showToast = false;
       }, 3000);
     },
-    handleEventClick(clickInfo) {
+    async handleEventClick(clickInfo) {
       const eventEl = clickInfo.el;
       eventEl.style.transform = 'scale(0.95)';
       setTimeout(() => {
         eventEl.style.transform = 'scale(1)';
       }, 100);
 
-      Swal.fire({
+      const result = await Swal.fire({
         title: '¿Eliminar cumpleaños?',
         html: `
           <div class="text-center">
@@ -550,22 +593,30 @@ export default defineComponent({
         customClass: {
           popup: 'modern-swal'
         }
-      }).then((result) => {
-        if (result.isConfirmed) {
-          axios.put(`birthdays/${clickInfo.event.id}`, { deleted: true })
-              .then(() => {
-                clickInfo.event.remove();
-                this.showToastNotification('Cumpleaños eliminado correctamente');
-                // Verificar si hay eventos después de eliminar
-                setTimeout(() => {
-                  this.checkEmptyState();
-                }, 100);
-              })
-              .catch(() => {
-                this.showToastNotification('Error al eliminar el cumpleaños', 'error');
-              });
-        }
       });
+
+      if (result.isConfirmed) {
+        try {
+          // ✅ CORREGIDO: URL y headers correctos
+          await axios.put(`/birthdays/${clickInfo.event.id}`,
+              { deleted: true },
+              { headers: this.getAuthHeaders() }
+          );
+
+          clickInfo.event.remove();
+          this.showToastNotification('Cumpleaños eliminado correctamente');
+
+          setTimeout(() => {
+            this.checkEmptyState();
+          }, 100);
+        } catch (error) {
+          console.error('Error al eliminar cumpleaños:', error);
+
+          if (await this.handleAuthError(error)) return;
+
+          this.showToastNotification('Error al eliminar el cumpleaños', 'error');
+        }
+      }
     },
     handleEvents(events) {
       this.currentEvents = events;
@@ -589,52 +640,73 @@ export default defineComponent({
         this.showEmptyState = eventsInCurrentMonth.length === 0;
       }
     },
-    fetchEvents(fetchInfo, successCallback, failureCallback) {
-      axios.get('birthdays')
-          .then(response => {
-            const events = response.data.map(event => ({
-              id: event.id,
-              title: event.nombre,
-              start: event.birthday,
-              allDay: true,
-              backgroundColor: this.getDepartmentColorByName(event.departamento),
-              borderColor: this.getDepartmentColorByName(event.departamento),
-              extendedProps: {
-                departamento: event.departamento
-              }
-            }));
-            successCallback(events);
-            // Verificar empty state después de cargar eventos
-            this.$nextTick(() => {
-              this.checkEmptyState();
-            });
-          })
-          .catch(error => {
-            console.error('Error fetching events:', error);
-            if (typeof failureCallback === 'function') {
-              failureCallback(error);
-            }
-          });
+    async fetchEvents(fetchInfo, successCallback, failureCallback) {
+      try {
+        // ✅ CORREGIDO: URL y headers correctos
+        const response = await axios.get('/birthdays', {
+          headers: this.getAuthHeaders()
+        });
+
+        const events = response.data.map(event => ({
+          id: event.id,
+          title: event.nombre,
+          start: event.birthday,
+          allDay: true,
+          backgroundColor: this.getDepartmentColorByName(event.departamento),
+          borderColor: this.getDepartmentColorByName(event.departamento),
+          extendedProps: {
+            departamento: event.departamento
+          }
+        }));
+
+        successCallback(events);
+
+        // Verificar empty state después de cargar eventos
+        this.$nextTick(() => {
+          this.checkEmptyState();
+        });
+      } catch (error) {
+        console.error('Error fetching events:', error);
+
+        if (await this.handleAuthError(error)) return;
+
+        if (typeof failureCallback === 'function') {
+          failureCallback(error);
+        }
+      }
     },
     createEventId() {
       return String(this.eventGuid++)
     },
-    addBirthday() {
-      const formattedBirthday = moment(this.newBirthday.birthday).format('YYYY-MM-DD');
-      const birthdayData = {
-        ...this.newBirthday,
-        birthday: formattedBirthday
-      };
+    async addBirthday() {
+      if (this.isSubmitting) return;
 
-      axios.post('addBirthday', birthdayData)
-          .then(() => {
-            this.closeModal();
-            this.$refs.calendar.getApi().refetchEvents();
-            this.showToastNotification('Cumpleaños agregado correctamente');
-          })
-          .catch(error => {
-            this.showToastNotification('Error al agregar el cumpleaños', 'error');
-          });
+      this.isSubmitting = true;
+
+      try {
+        const formattedBirthday = moment(this.newBirthday.birthday).format('YYYY-MM-DD');
+        const birthdayData = {
+          ...this.newBirthday,
+          birthday: formattedBirthday
+        };
+
+        // ✅ CORREGIDO: URL y headers correctos
+        await axios.post('/addBirthday', birthdayData, {
+          headers: this.getAuthHeaders()
+        });
+
+        this.closeModal();
+        this.$refs.calendar.getApi().refetchEvents();
+        this.showToastNotification('Cumpleaños agregado correctamente');
+      } catch (error) {
+        console.error('Error al agregar cumpleaños:', error);
+
+        if (await this.handleAuthError(error)) return;
+
+        this.showToastNotification('Error al agregar el cumpleaños', 'error');
+      } finally {
+        this.isSubmitting = false;
+      }
     },
     downloadExcel() {
       const events = this.currentEvents;
@@ -661,16 +733,27 @@ export default defineComponent({
 
       this.showToastNotification('Excel descargado correctamente');
     },
-    showDirectorio() {
-      axios.get('directorio_usuarios')
-          .then(response => {
-            this.directorio = response.data.data;
-            this.showDirectorioModal = true;
-          })
-          .catch(error => {
-            console.error('Error fetching directorio:', error);
-            this.showToastNotification('Error al cargar el directorio', 'error');
-          });
+    async showDirectorio() {
+      this.showDirectorioModal = true;
+      this.isLoadingDirectorio = true;
+
+      try {
+        // ✅ CORREGIDO: URL y headers correctos
+        const response = await axios.get('/directorio_usuarios', {
+          headers: this.getAuthHeaders()
+        });
+
+        this.directorio = response.data.data || response.data;
+      } catch (error) {
+        console.error('Error fetching directorio:', error);
+
+        if (await this.handleAuthError(error)) return;
+
+        this.showToastNotification('Error al cargar el directorio', 'error');
+        this.closeDirectorio();
+      } finally {
+        this.isLoadingDirectorio = false;
+      }
     }
   }
 })
@@ -1083,6 +1166,12 @@ export default defineComponent({
 .directory-content {
   max-height: 60vh;
   overflow-y: auto;
+}
+
+/* Spinner styles */
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
 }
 
 /* Responsive Design */

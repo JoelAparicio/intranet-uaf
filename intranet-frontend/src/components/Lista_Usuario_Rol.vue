@@ -338,10 +338,13 @@
               </div>
             </div>
             <div class="modal-footer px-0">
-              <button type="button" class="btn btn-secondary" @click="closeEditUserModal">Cancelar</button>
-              <button type="submit" class="btn btn-primary">
-                <font-awesome-icon :icon="['fas', 'save']" class="me-2" />
-                Guardar cambios
+              <button type="button" class="btn btn-secondary" @click="closeEditUserModal">
+                Cancelar
+              </button>
+              <button type="submit" class="btn btn-primary" :disabled="isUpdatingUser">
+                <span v-if="isUpdatingUser" class="spinner-border spinner-border-sm me-2"></span>
+                <font-awesome-icon v-else :icon="['fas', 'save']" class="me-2" />
+                {{ isUpdatingUser ? 'Guardando...' : 'Guardar cambios' }}
               </button>
             </div>
           </form>
@@ -353,42 +356,17 @@
 
 <script>
 import axios from 'axios';
-import Swal from 'sweetalert2';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import apiConfig from '@/config/api'
+import { mapGetters } from 'vuex';
+
 export default {
   name: 'ListaUsuarioRol',
   components: {
     FontAwesomeIcon
   },
-  data() {
-    return {
-      openDropdownId: null,
-      searchTerm: '',
-      selectedRole: '',
-      selectedStatus: '',
-      roles: [],
-      users: [],
-      currentUser: {},
-      showEditUserModal: false,
-      editUserData: {
-        id: null,
-        nombre: '',
-        correo_electronico: '',
-        cargo: '',
-        posicion: '',
-        cedula: '',
-        extension: '',
-        departamento: '',
-        tiempo_extra: 0
-      },
-      viewMode: 'table',
-      currentPage: 1,
-      itemsPerPage: 10,
-      loading: true
-    };
-  },
   computed: {
+    ...mapGetters('auth', ['token', 'isAuthenticated', 'user']),
+
     filteredUsers() {
       return this.users.filter(user => {
         const matchesSearch = this.searchTerm === '' ||
@@ -444,6 +422,34 @@ export default {
       return rangeWithDots;
     }
   },
+  data() {
+    return {
+      openDropdownId: null,
+      searchTerm: '',
+      selectedRole: '',
+      selectedStatus: '',
+      roles: [],
+      users: [],
+      currentUser: {},
+      showEditUserModal: false,
+      editUserData: {
+        id: null,
+        nombre: '',
+        correo_electronico: '',
+        cargo: '',
+        posicion: '',
+        cedula: '',
+        extension: '',
+        departamento: '',
+        tiempo_extra: 0
+      },
+      viewMode: 'table',
+      currentPage: 1,
+      itemsPerPage: 10,
+      loading: true,
+      isUpdatingUser: false
+    };
+  },
   watch: {
     filteredUsers() {
       // Reset to first page when filters change
@@ -451,7 +457,26 @@ export default {
     }
   },
   methods: {
+    // ===== AUTENTICACIÓN =====
+    getAuthHeaders() {
+      if (!this.token) {
+        throw new Error('No token available');
+      }
+      return {
+        'Authorization': `Bearer ${this.token}`
+      };
+    },
 
+    async handleAuthError(error) {
+      if (error.response?.status === 401) {
+        await this.$store.dispatch('auth/logout');
+        this.$router.push('/login');
+        return true;
+      }
+      return false;
+    },
+
+    // ===== DROPDOWN =====
     getDropdownPosition(userId) {
       // Verificar si es uno de los últimos usuarios
       const userIndex = this.paginatedUsers.findIndex(u => u.id === userId);
@@ -481,23 +506,37 @@ export default {
         this.openDropdownId = userId;
       }
     },
+
     handleEditUser(user) {
       this.openDropdownId = null;
       this.openEditUserModal(user);
     },
+
     handleToggleStatus(user) {
       this.openDropdownId = null;
       this.toggleUserStatus(user);
     },
+
     handleDeleteUser(user) {
       this.openDropdownId = null;
       this.confirmDeleteUser(user);
     },
 
+    // ===== API CALLS =====
     async fetchUsers() {
       try {
         this.loading = true;
-        const response = await axios.get(apiConfig.endpoints.administrarUsuarios);
+
+        if (!this.token) {
+          await this.$store.dispatch('auth/logout');
+          this.$router.push('/login');
+          return;
+        }
+
+        const response = await axios.get('/administrar_usuarios', {
+          headers: this.getAuthHeaders()
+        });
+
         if (response.data.status) {
           this.users = response.data.data;
           this.roles = [...new Set(this.users.flatMap(user => user.roles))];
@@ -511,7 +550,10 @@ export default {
         }
       } catch (error) {
         console.error('Error fetching users:', error);
-        Swal.fire({
+
+        if (await this.handleAuthError(error)) return;
+
+        this.$swal.fire({
           icon: 'error',
           title: 'Error',
           text: 'No se pudieron cargar los usuarios',
@@ -522,31 +564,150 @@ export default {
         this.loading = false;
       }
     },
+
     async fetchCurrentUser() {
       try {
-        const response = await axios.get(apiConfig.endpoints.user);
+        if (!this.token) {
+          await this.$store.dispatch('auth/logout');
+          this.$router.push('/login');
+          return;
+        }
+
+        const response = await axios.get('/user', {
+          headers: this.getAuthHeaders()
+        });
+
         this.currentUser = response.data.data;
       } catch (error) {
         console.error('Error fetching current user:', error);
+        await this.handleAuthError(error);
       }
     },
+
     async deleteUser(userId, actionUserId) {
       try {
-        await axios.put(`${apiConfig.endpoints.borrarUsuario}/${userId}`, { action_user_id: actionUserId });
-        this.fetchUsers();
-        Swal.fire('Eliminado!', 'El usuario ha sido eliminado.', 'success');
+        if (!this.token) {
+          await this.$store.dispatch('auth/logout');
+          this.$router.push('/login');
+          return;
+        }
+
+        await axios.put(`/borrar_usuario/${userId}`,
+            { action_user_id: actionUserId },
+            { headers: this.getAuthHeaders() }
+        );
+
+        await this.fetchUsers();
+
+        this.$swal.fire({
+          icon: 'success',
+          title: 'Eliminado!',
+          text: 'El usuario ha sido eliminado.',
+          timer: 1500,
+          showConfirmButton: false
+        });
       } catch (error) {
         console.error('Error deleting user:', error);
-        Swal.fire('Error!', 'No se pudo eliminar el usuario.', 'error');
+
+        if (await this.handleAuthError(error)) return;
+
+        this.$swal.fire({
+          icon: 'error',
+          title: 'Error!',
+          text: 'No se pudo eliminar el usuario.'
+        });
       }
     },
+
+    async updateUser() {
+      try {
+        if (!this.token) {
+          await this.$store.dispatch('auth/logout');
+          this.$router.push('/login');
+          return;
+        }
+
+        this.isUpdatingUser = true;
+
+        await axios.put(`/actualizar_usuario/${this.editUserData.id}`,
+            this.editUserData,
+            { headers: this.getAuthHeaders() }
+        );
+
+        await this.fetchUsers();
+        this.closeEditUserModal();
+
+        this.$swal.fire({
+          title: 'Actualizado!',
+          text: 'El usuario ha sido actualizado.',
+          icon: 'success',
+          timer: 1500,
+          showConfirmButton: false
+        });
+      } catch (error) {
+        console.error('Error updating user:', error);
+
+        if (await this.handleAuthError(error)) return;
+
+        this.$swal.fire({
+          icon: 'error',
+          title: 'Error!',
+          text: 'No se pudo actualizar el usuario.'
+        });
+      } finally {
+        this.isUpdatingUser = false;
+      }
+    },
+
+    async toggleUserStatus(user) {
+      try {
+        if (!this.token) {
+          await this.$store.dispatch('auth/logout');
+          this.$router.push('/login');
+          return;
+        }
+
+        const newState = user.estado === 'Activo' ? 'inactivo' : 'activo';
+
+        await axios.put(`/status_usuario/${user.id}`,
+            { estado: newState },
+            { headers: this.getAuthHeaders() }
+        );
+
+        await this.fetchUsers();
+
+        this.$swal.fire({
+          title: 'Status actualizado!',
+          text: `El usuario ahora está ${newState}.`,
+          icon: 'success',
+          timer: 1500,
+          showConfirmButton: false
+        });
+      } catch (error) {
+        console.error('Error toggling user status:', error);
+
+        if (await this.handleAuthError(error)) return;
+
+        this.$swal.fire({
+          icon: 'error',
+          title: 'Error!',
+          text: 'No se pudo cambiar el estado del usuario.'
+        });
+      }
+    },
+
+    // ===== MODAL METHODS =====
     confirmDeleteUser(user) {
       if (user.id === this.currentUser.id) {
-        Swal.fire('Error!', 'No puedes borrarte a ti mismo.', 'error');
+        this.$swal.fire({
+          icon: 'error',
+          title: 'Error!',
+          text: 'No puedes borrarte a ti mismo.'
+        });
         return;
       }
 
-      Swal.fire({
+      this.$swal.fire({
         title: '¿Estás seguro?',
         text: 'Esta acción será permanente y no se puede deshacer.',
         icon: 'warning',
@@ -561,47 +722,18 @@ export default {
         }
       });
     },
+
     openEditUserModal(user) {
       this.editUserData = { ...user };
       this.showEditUserModal = true;
     },
+
     closeEditUserModal() {
       this.showEditUserModal = false;
+      this.isUpdatingUser = false;
     },
-    async updateUser() {
-      try {
-        await axios.put(`${apiConfig.endpoints.actualizarUsuario}/${this.editUserData.id}`, this.editUserData);
-        this.fetchUsers();
-        this.closeEditUserModal();
-        Swal.fire({
-          title: 'Actualizado!',
-          text: 'El usuario ha sido actualizado.',
-          icon: 'success',
-          timer: 1500,
-          showConfirmButton: false
-        });
-      } catch (error) {
-        console.error('Error updating user:', error);
-        Swal.fire('Error!', 'No se pudo actualizar el usuario.', 'error');
-      }
-    },
-    async toggleUserStatus(user) {
-      const newState = user.estado === 'Activo' ? 'inactivo' : 'activo';
-      try {
-        await axios.put(`${apiConfig.endpoints.statusUsuario}/${user.id}`, { estado: newState });
-        this.fetchUsers();
-        Swal.fire({
-          title: 'Status actualizado!',
-          text: `El usuario ahora está ${newState}.`,
-          icon: 'success',
-          timer: 1500,
-          showConfirmButton: false
-        });
-      } catch (error) {
-        console.error('Error toggling user status:', error);
-        Swal.fire('Error!', 'No se pudo cambiar el estado del usuario.', 'error');
-      }
-    },
+
+    // ===== HELPER METHODS =====
     getRoleColor(role) {
       if (!role) return '#6c757d';
       const lowerRole = role.toLowerCase();
@@ -611,36 +743,56 @@ export default {
       if (lowerRole.includes('aseso')) return '#6f42c1';
       return '#6c757d';
     },
+
     clearFilters() {
       this.searchTerm = '';
       this.selectedRole = '';
       this.selectedStatus = '';
     },
+
+    // ===== PAGINATION =====
     changePage(page) {
       if (page !== '...' && page >= 1 && page <= this.totalPages) {
         this.currentPage = page;
       }
     },
+
     nextPage() {
       if (this.currentPage < this.totalPages) {
         this.currentPage++;
       }
     },
+
     previousPage() {
       if (this.currentPage > 1) {
         this.currentPage--;
       }
     }
   },
+
+  async created() {
+    // Verificar autenticación
+    if (!this.isAuthenticated) {
+      this.$router.push('/login');
+      return;
+    }
+
+    await this.fetchUsers();
+    await this.fetchCurrentUser();
+  },
+
   mounted() {
-    this.fetchUsers();
-    this.fetchCurrentUser();
     // Cerrar dropdown al hacer click fuera
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.custom-dropdown')) {
         this.openDropdownId = null;
       }
     });
+  },
+
+  beforeUnmount() {
+    // Limpiar event listeners
+    document.removeEventListener('click', () => {});
   }
 };
 </script>
@@ -687,6 +839,7 @@ export default {
   overflow: hidden;
   border-top: 1px solid #e9ecef;
 }
+
 /* Card Base */
 .card.no-animation {
   border: 1px solid #e9ecef;
@@ -1270,10 +1423,17 @@ export default {
   box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background-color: #0056b3;
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+}
+
+.btn-primary:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .btn-secondary {
@@ -1306,6 +1466,12 @@ export default {
 .btn-link:hover {
   color: #0056b3;
   text-decoration: underline;
+}
+
+/* Spinner */
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
 }
 
 /* Department Text */

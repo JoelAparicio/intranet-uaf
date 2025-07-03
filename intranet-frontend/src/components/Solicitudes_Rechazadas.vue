@@ -16,24 +16,35 @@
         <div v-else class="table-container">
           <table class="table">
             <thead>
-              <tr>
-                <th>ID Solicitud</th>
-                <th>Colaborador</th>
-                <th>Tipo de Solicitud</th>
-                <th>Fecha de Creación</th>
-              </tr>
+            <tr>
+              <th>ID Solicitud</th>
+              <th>Colaborador</th>
+              <th>Tipo de Solicitud</th>
+              <th>Fecha de Creación</th>
+              <th>Motivo</th>
+            </tr>
             </thead>
             <tbody>
-              <tr v-for="solicitud in solicitudesRechazadas" :key="solicitud.id_solicitud">
-                <td>{{ solicitud.id_solicitud }}</td>
-                <td>{{ solicitud.colaborador }}</td>
-                <td>
+            <tr v-for="solicitud in solicitudesRechazadas" :key="solicitud.id_solicitud">
+              <td>{{ solicitud.id_solicitud }}</td>
+              <td>{{ solicitud.colaborador }}</td>
+              <td>
                   <span class="badge" :class="getBadgeClass(solicitud.tipo_solicitud)">
                     {{ solicitud.tipo_solicitud }}
                   </span>
-                </td>
-                <td>{{ formatFecha(solicitud.fecha_creacion) }}</td>
-              </tr>
+              </td>
+              <td>{{ formatFecha(solicitud.fecha_creacion) }}</td>
+              <td>
+                  <span
+                      v-if="solicitud.motivo_rechazo"
+                      class="motivo-rechazo"
+                      :title="solicitud.motivo_rechazo"
+                  >
+                    {{ truncateText(solicitud.motivo_rechazo, 50) }}
+                  </span>
+                <span v-else class="text-muted">Sin motivo especificado</span>
+              </td>
+            </tr>
             </tbody>
           </table>
         </div>
@@ -46,12 +57,16 @@
 import axios from 'axios';
 import moment from 'moment';
 import 'moment/locale/es';
-import { markRaw } from 'vue';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { mapGetters } from 'vuex';
 
-export default markRaw({
+export default {
+  name: 'SolicitudesRechazadas',
   components: {
     FontAwesomeIcon
+  },
+  computed: {
+    ...mapGetters('auth', ['token', 'isAuthenticated', 'user'])
   },
   data() {
     return {
@@ -60,37 +75,107 @@ export default markRaw({
     };
   },
   methods: {
+    // ===== AUTENTICACIÓN =====
+    getAuthHeaders() {
+      if (!this.token) {
+        throw new Error('No token available');
+      }
+      return {
+        'Authorization': `Bearer ${this.token}`
+      };
+    },
+
+    async handleAuthError(error) {
+      if (error.response?.status === 401) {
+        await this.$store.dispatch('auth/logout');
+        this.$router.push('/login');
+        return true;
+      }
+      return false;
+    },
+
+    // ===== API CALLS =====
     async fetchSolicitudesRechazadas() {
-      this.loading = true;
       try {
-        const response = await axios.get('solicitudes-rechazadas');
+        this.loading = true;
+
+        if (!this.token) {
+          await this.$store.dispatch('auth/logout');
+          this.$router.push('/login');
+          return;
+        }
+
+        const response = await axios.get('/solicitudes-rechazadas', {
+          headers: this.getAuthHeaders()
+        });
+
         if (response.data.success) {
           this.solicitudesRechazadas = response.data.data;
+        } else {
+          console.warn('La respuesta no fue exitosa:', response.data);
+          this.solicitudesRechazadas = [];
         }
-        this.loading = false;
       } catch (error) {
         console.error('Error fetching solicitudes rechazadas:', error);
+
+        if (await this.handleAuthError(error)) return;
+
+        this.$swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudieron cargar las solicitudes rechazadas',
+          timer: 2000,
+          showConfirmButton: false
+        });
+
+        this.solicitudesRechazadas = [];
+      } finally {
         this.loading = false;
       }
     },
+
+    // ===== HELPER METHODS =====
     formatFecha(fecha) {
       if (!fecha) return '';
-      return moment(fecha).format('D [de] MMMM [de] YYYY, h:mm a');
+
+      try {
+        return moment(fecha).format('D [de] MMMM [de] YYYY, h:mm a');
+      } catch (error) {
+        console.error('Error formatting date:', error);
+        return fecha; // Retornar fecha original si hay error
+      }
     },
+
     getBadgeClass(tipoSolicitud) {
       const classes = {
         'Vacaciones': 'badge-success',
         'Permiso': 'badge-warning',
         'Licencia': 'badge-info',
+        'Reincorporación': 'badge-primary',
+        'Tiempo Compensatorio': 'badge-secondary',
+        'Horas Extraordinarias': 'badge-dark',
         'Otros': 'badge-secondary'
       };
       return classes[tipoSolicitud] || 'badge-primary';
+    },
+
+    truncateText(text, maxLength) {
+      if (!text) return '';
+      if (text.length <= maxLength) return text;
+      return text.substring(0, maxLength) + '...';
     }
   },
-  mounted() {
-    this.fetchSolicitudesRechazadas();
+
+  async created() {
+    // Verificar autenticación
+    if (!this.isAuthenticated) {
+      this.$router.push('/login');
+      return;
+    }
+
+    await this.fetchSolicitudesRechazadas();
   }
-});
+};
 </script>
 
 <style scoped>
@@ -102,10 +187,11 @@ export default markRaw({
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  border: 1px solid #e9ecef;
 }
 
 .card-header {
-  background-color: #1050a9;
+  background-color: #dc3545; /* Color rojo para indicar rechazo */
   color: white;
   padding: 1rem;
 }
@@ -131,6 +217,7 @@ h4 {
 .loading-spinner p, .no-solicitudes p {
   margin-top: 1rem;
   font-size: 1.1rem;
+  text-align: center;
 }
 
 .table-container {
@@ -154,8 +241,10 @@ h4 {
   z-index: 10;
   font-weight: 600;
   border-top: none;
-  border-bottom: 2px solid #1050a9;
+  border-bottom: 2px solid #dc3545; /* Color rojo para header */
   padding: 0.75rem 1rem;
+  text-align: left;
+  color: #495057;
 }
 
 .table td {
@@ -163,6 +252,10 @@ h4 {
   padding: 0.75rem 1rem;
   background-color: #ffffff;
   border-bottom: 1px solid #e9ecef;
+}
+
+.table tbody tr:hover {
+  background-color: #fff5f5; /* Hover con tinte rojizo sutil */
 }
 
 .table tr:last-child td {
@@ -174,13 +267,53 @@ h4 {
   font-size: 0.85em;
   font-weight: 500;
   border-radius: 30px;
+  text-align: center;
+  white-space: nowrap;
 }
 
-.badge-success { background-color: #28a745; color: white; }
-.badge-warning { background-color: #ffc107; color: #212529; }
-.badge-info { background-color: #17a2b8; color: white; }
-.badge-secondary { background-color: #6c757d; color: white; }
-.badge-primary { background-color: #1050a9; color: white; }
+.badge-success {
+  background-color: #28a745;
+  color: white;
+}
+
+.badge-warning {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.badge-info {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.badge-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.badge-primary {
+  background-color: #1050a9;
+  color: white;
+}
+
+.badge-dark {
+  background-color: #343a40;
+  color: white;
+}
+
+/* Motivo de rechazo */
+.motivo-rechazo {
+  color: #dc3545;
+  font-style: italic;
+  cursor: help;
+  font-size: 0.9rem;
+}
+
+.text-muted {
+  color: #6c757d !important;
+  font-style: italic;
+  font-size: 0.9rem;
+}
 
 /* Estilizar la barra de desplazamiento */
 .table-container::-webkit-scrollbar {
@@ -189,20 +322,97 @@ h4 {
 
 .table-container::-webkit-scrollbar-track {
   background: #f1f1f1;
+  border-radius: 3px;
 }
 
 .table-container::-webkit-scrollbar-thumb {
-  background: #888;
+  background: #dc3545; /* Color rojo para scrollbar */
   border-radius: 3px;
 }
 
 .table-container::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: #c82333;
 }
 
+/* Responsive Design */
 @media (max-width: 768px) {
   .table th, .table td {
     padding: 0.5rem;
+    font-size: 0.875rem;
   }
+
+  .card-body {
+    padding: 0.75rem;
+  }
+
+  .table-container {
+    max-height: 400px;
+  }
+
+  .badge {
+    font-size: 0.75em;
+    padding: 0.375em 0.625em;
+  }
+
+  /* Ocultar columna de motivo en móviles para mejor legibilidad */
+  .table th:nth-child(5),
+  .table td:nth-child(5) {
+    display: none;
+  }
+}
+
+@media (max-width: 576px) {
+  .table th, .table td {
+    padding: 0.375rem;
+    font-size: 0.8rem;
+  }
+
+  h4 {
+    font-size: 1.1rem;
+  }
+
+  .loading-spinner p, .no-solicitudes p {
+    font-size: 1rem;
+  }
+
+  /* En pantallas muy pequeñas, también ocultar tipo de solicitud */
+  .table th:nth-child(3),
+  .table td:nth-child(3) {
+    display: none;
+  }
+}
+
+/* Mejoras de accesibilidad */
+.table tbody tr {
+  transition: background-color 0.15s ease-in-out;
+}
+
+/* Loading animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.table tbody tr {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Focus states for accessibility */
+.table tbody tr:focus-within {
+  background-color: #ffe6e6;
+  outline: 2px solid #dc3545;
+  outline-offset: -2px;
+}
+
+/* Tooltip enhancement */
+.motivo-rechazo:hover {
+  color: #a71e2a;
+  text-decoration: underline;
 }
 </style>

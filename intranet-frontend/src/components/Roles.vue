@@ -152,9 +152,10 @@
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" @click="hideAddRoleModal">Cancelar</button>
-            <button type="button" class="btn btn-primary" @click="createRole" :disabled="!newRole.trim()">
-              <font-awesome-icon :icon="['fas', 'save']" class="me-2" />
-              Guardar rol
+            <button type="button" class="btn btn-primary" @click="createRole" :disabled="!newRole.trim() || isCreatingRole">
+              <span v-if="isCreatingRole" class="spinner-border spinner-border-sm me-2"></span>
+              <font-awesome-icon v-else :icon="['fas', 'save']" class="me-2" />
+              {{ isCreatingRole ? 'Guardando...' : 'Guardar rol' }}
             </button>
           </div>
         </div>
@@ -221,9 +222,10 @@
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" @click="hideAssignUserModal">Cancelar</button>
-            <button type="button" class="btn btn-primary" @click="confirmAssignRoleToUser" :disabled="!selectedUser">
-              <font-awesome-icon :icon="['fas', 'user-check']" class="me-2" />
-              Asignar rol
+            <button type="button" class="btn btn-primary" @click="confirmAssignRoleToUser" :disabled="!selectedUser || isAssigningRole">
+              <span v-if="isAssigningRole" class="spinner-border spinner-border-sm me-2"></span>
+              <font-awesome-icon v-else :icon="['fas', 'user-check']" class="me-2" />
+              {{ isAssigningRole ? 'Asignando...' : 'Asignar rol' }}
             </button>
           </div>
         </div>
@@ -260,8 +262,10 @@
                     @click="desasignarRol(user.id, selectedRole.name)"
                     data-bs-toggle="tooltip"
                     title="Remover rol"
+                    :disabled="isUnassigningRole"
                 >
-                  <font-awesome-icon :icon="['fas', 'user-minus']" />
+                  <span v-if="isUnassigningRole" class="spinner-border spinner-border-sm"></span>
+                  <font-awesome-icon v-else :icon="['fas', 'user-minus']" />
                 </button>
               </div>
             </div>
@@ -307,10 +311,11 @@
                 type="button"
                 class="btn btn-danger"
                 @click="confirmDeleteRole"
-                :disabled="!selectedRoleToDelete"
+                :disabled="!selectedRoleToDelete || isDeletingRole"
             >
-              <font-awesome-icon :icon="['fas', 'trash']" class="me-2" />
-              Eliminar rol
+              <span v-if="isDeletingRole" class="spinner-border spinner-border-sm me-2"></span>
+              <font-awesome-icon v-else :icon="['fas', 'trash']" class="me-2" />
+              {{ isDeletingRole ? 'Eliminando...' : 'Eliminar rol' }}
             </button>
           </div>
         </div>
@@ -321,29 +326,13 @@
 
 <script>
 import axios from 'axios';
-import Swal from 'sweetalert2';
-import apiConfig from '@/config/api'
+import { mapGetters } from 'vuex';
+
 export default {
   name: 'Roles',
-  data() {
-    return {
-      roles: [],
-      users: [],
-      currentPage: 1,
-      rolesPerPage: 6,
-      showModal: false,
-      showAssignModal: false,
-      showDeleteModal: false,
-      isUsersModalVisible: false,
-      newRole: '',
-      userSearchQuery: '',
-      selectedUser: null,
-      selectedRole: null,
-      selectedRoleToDelete: '',
-      loading: true,
-    };
-  },
   computed: {
+    ...mapGetters('auth', ['token', 'isAuthenticated', 'user']),
+
     totalPages() {
       return Math.ceil(this.roles.length / this.rolesPerPage);
     },
@@ -394,12 +383,64 @@ export default {
       return this.roles.filter(role => role.usuarios_count === 0);
     }
   },
+  data() {
+    return {
+      roles: [],
+      users: [],
+      currentPage: 1,
+      rolesPerPage: 6,
+      showModal: false,
+      showAssignModal: false,
+      showDeleteModal: false,
+      isUsersModalVisible: false,
+      newRole: '',
+      userSearchQuery: '',
+      selectedUser: null,
+      selectedRole: null,
+      selectedRoleToDelete: '',
+      loading: true,
+      isCreatingRole: false,
+      isAssigningRole: false,
+      isUnassigningRole: false,
+      isDeletingRole: false
+    };
+  },
   methods: {
+    // ===== AUTENTICACIÓN =====
+    getAuthHeaders() {
+      if (!this.token) {
+        throw new Error('No token available');
+      }
+      return {
+        'Authorization': `Bearer ${this.token}`
+      };
+    },
+
+    async handleAuthError(error) {
+      if (error.response?.status === 401) {
+        await this.$store.dispatch('auth/logout');
+        this.$router.push('/login');
+        return true;
+      }
+      return false;
+    },
+
+    // ===== API CALLS =====
     async listar_roles() {
       try {
         this.loading = true;
-        const rolesResponse = await axios.get(apiConfig.endpoints.roles);
-        const usersResponse = await axios.get(apiConfig.endpoints.listarUsuarios);
+
+        if (!this.token) {
+          await this.$store.dispatch('auth/logout');
+          this.$router.push('/login');
+          return;
+        }
+
+        const [rolesResponse, usersResponse] = await Promise.all([
+          axios.get('/roles', { headers: this.getAuthHeaders() }),
+          axios.get('/listar_usuarios', { headers: this.getAuthHeaders() })
+        ]);
+
         this.roles = rolesResponse.data;
         this.users = Array.isArray(usersResponse.data.data) ? usersResponse.data.data : [];
 
@@ -410,10 +451,213 @@ export default {
         });
       } catch (error) {
         console.error('Error fetching data:', error);
+
+        if (await this.handleAuthError(error)) return;
+
+        this.$swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudieron cargar los roles',
+          timer: 2000,
+          showConfirmButton: false
+        });
       } finally {
         this.loading = false;
       }
     },
+
+    async createRole() {
+      if (!this.newRole.trim()) return;
+
+      try {
+        if (!this.token) {
+          await this.$store.dispatch('auth/logout');
+          this.$router.push('/login');
+          return;
+        }
+
+        this.isCreatingRole = true;
+
+        const response = await axios.post('/agregar_roles',
+            { name: this.newRole },
+            { headers: this.getAuthHeaders() }
+        );
+
+        this.roles.push(response.data.data);
+        this.hideAddRoleModal();
+        this.newRole = '';
+
+        this.$swal.fire({
+          icon: 'success',
+          title: 'Rol creado',
+          text: 'El rol ha sido creado correctamente',
+          timer: 1000,
+          showConfirmButton: false
+        });
+
+        await this.listar_roles(); // Refrescar la lista de roles
+      } catch (error) {
+        console.error('Error creating role:', error);
+
+        if (await this.handleAuthError(error)) return;
+
+        this.$swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Hubo un error al crear el rol',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      } finally {
+        this.isCreatingRole = false;
+      }
+    },
+
+    async assignRoleToUser() {
+      try {
+        if (!this.token) {
+          await this.$store.dispatch('auth/logout');
+          this.$router.push('/login');
+          return;
+        }
+
+        this.isAssigningRole = true;
+
+        await axios.post('/asignar_rol',
+            {
+              user_id: this.selectedUser.id,
+              role: this.selectedRole.name
+            },
+            { headers: this.getAuthHeaders() }
+        );
+
+        this.hideAssignUserModal();
+        this.selectedUser = null;
+        this.userSearchQuery = '';
+
+        this.$swal.fire({
+          icon: 'success',
+          title: 'Rol asignado',
+          text: 'El rol ha sido asignado correctamente',
+          timer: 1500,
+          showConfirmButton: false
+        });
+
+        await this.listar_roles(); // Refrescar la lista de roles
+      } catch (error) {
+        console.error('Error assigning role to user:', error);
+
+        if (await this.handleAuthError(error)) return;
+
+        if (error.response && error.response.status === 422) {
+          this.$swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'No se ha seleccionado ningún usuario válido',
+            timer: 2000,
+            showConfirmButton: false
+          });
+        } else {
+          this.$swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Hubo un error al asignar el rol',
+            timer: 2000,
+            showConfirmButton: false
+          });
+        }
+      } finally {
+        this.isAssigningRole = false;
+      }
+    },
+
+    async desasignarRol(userId, roleName) {
+      try {
+        if (!this.token) {
+          await this.$store.dispatch('auth/logout');
+          this.$router.push('/login');
+          return;
+        }
+
+        this.isUnassigningRole = true;
+
+        await axios.put('/desasignar_rol',
+            { user_id: userId, role: roleName },
+            { headers: this.getAuthHeaders() }
+        );
+
+        this.$swal.fire({
+          icon: 'success',
+          title: 'Usuario desasignado',
+          text: 'El usuario ha sido desasignado del rol correctamente',
+          timer: 1500,
+          showConfirmButton: false
+        });
+
+        this.hideUsersModal(); // Cerrar el modal después de desasignar
+        await this.listar_roles(); // Refrescar la lista de roles
+      } catch (error) {
+        console.error('Error unassigning role from user:', error);
+
+        if (await this.handleAuthError(error)) return;
+
+        this.$swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Hubo un error al desasignar el rol del usuario',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      } finally {
+        this.isUnassigningRole = false;
+      }
+    },
+
+    async deleteRole() {
+      try {
+        if (!this.token) {
+          await this.$store.dispatch('auth/logout');
+          this.$router.push('/login');
+          return;
+        }
+
+        this.isDeletingRole = true;
+
+        await axios.put(`/eliminar_rol/${this.selectedRoleToDelete}`, {}, {
+          headers: this.getAuthHeaders()
+        });
+
+        this.roles = this.roles.filter(role => role.name !== this.selectedRoleToDelete);
+        this.hideDeleteRoleModal();
+        this.selectedRoleToDelete = '';
+
+        this.$swal.fire({
+          icon: 'success',
+          title: 'Rol eliminado',
+          text: 'El rol ha sido eliminado correctamente',
+          timer: 1000,
+          showConfirmButton: false
+        });
+
+        await this.listar_roles(); // Refrescar la lista de roles
+      } catch (error) {
+        console.error('Error deleting role:', error);
+
+        if (await this.handleAuthError(error)) return;
+
+        this.$swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Hubo un error al eliminar el rol',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      } finally {
+        this.isDeletingRole = false;
+      }
+    },
+
+    // ===== PAGINATION =====
     changePage(page) {
       if (page !== '...' && page >= 1 && page <= this.totalPages) {
         this.currentPage = page;
@@ -429,6 +673,8 @@ export default {
         this.currentPage--;
       }
     },
+
+    // ===== HELPER METHODS =====
     getIcon(roleName) {
       const lowerRoleName = roleName.toLowerCase();
       if (lowerRoleName.includes('jefe') || lowerRoleName.includes('director') || lowerRoleName.includes('subdirector')) {
@@ -443,6 +689,7 @@ export default {
         return ['fas', 'user'];
       }
     },
+
     getColorForRole(roleName) {
       const lowerRoleName = roleName.toLowerCase();
       if (lowerRoleName.includes('administrador')) return '#dc3545';
@@ -451,40 +698,17 @@ export default {
       if (lowerRoleName.includes('aseso')) return '#6f42c1';
       return '#6c757d';
     },
+
+    // ===== MODAL METHODS =====
     showAddRoleModal() {
       this.showModal = true;
     },
     hideAddRoleModal() {
       this.showModal = false;
       this.newRole = '';
+      this.isCreatingRole = false;
     },
-    async createRole() {
-      if (!this.newRole.trim()) return;
 
-      try {
-        const response = await axios.post(apiConfig.endpoints.agregarRoles, { name: this.newRole });
-        this.roles.push(response.data.data);
-        this.hideAddRoleModal();
-        this.newRole = '';
-        Swal.fire({
-          icon: 'success',
-          title: 'Rol creado',
-          text: 'El rol ha sido creado correctamente',
-          timer: 1000,
-          showConfirmButton: false
-        });
-        this.listar_roles(); // Refrescar la lista de roles
-      } catch (error) {
-        console.error('Error creating role:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'Hubo un error al crear el rol',
-          timer: 2000,
-          showConfirmButton: false
-        });
-      }
-    },
     showAssignUserModal(role) {
       this.selectedRole = role;
       this.showAssignModal = true;
@@ -493,22 +717,46 @@ export default {
       this.showAssignModal = false;
       this.selectedUser = null;
       this.userSearchQuery = '';
+      this.isAssigningRole = false;
     },
+
+    showUsersModal(role) {
+      this.selectedRole = role;
+      this.isUsersModalVisible = true;
+    },
+    hideUsersModal() {
+      this.isUsersModalVisible = false;
+      this.isUnassigningRole = false;
+    },
+
+    showDeleteRoleModal() {
+      this.showDeleteModal = true;
+    },
+    hideDeleteRoleModal() {
+      this.showDeleteModal = false;
+      this.selectedRoleToDelete = '';
+      this.isDeletingRole = false;
+    },
+
+    // ===== USER SEARCH METHODS =====
     updateSearchResults() {
       this.selectedUser = null; // Limpiar usuario seleccionado si se cambia la búsqueda
     },
+
     selectUser(user) {
       this.selectedUser = user;
       this.userSearchQuery = user.correo_electronico; // Mostrar solo el correo electrónico en el campo de búsqueda
     },
+
     clearSelectedUser() {
       this.selectedUser = null;
       this.userSearchQuery = '';
     },
+
     async confirmAssignRoleToUser() {
       if (!this.selectedUser) {
         console.error('No user selected');
-        Swal.fire({
+        this.$swal.fire({
           icon: 'error',
           title: 'Error',
           text: 'No se ha seleccionado ningún usuario',
@@ -517,8 +765,9 @@ export default {
         });
         return;
       }
+
       if (this.selectedRole.usuarios.some(user => user.correo_electronico === this.selectedUser.correo_electronico)) {
-        Swal.fire({
+        this.$swal.fire({
           icon: 'error',
           title: 'Error',
           text: 'El usuario ya está asignado a este rol',
@@ -527,86 +776,14 @@ export default {
         });
         return;
       }
+
       this.assignRoleToUser();
     },
-    async assignRoleToUser() {
-      try {
-        await axios.post(apiConfig.endpoints.asignarRol, { user_id: this.selectedUser.id, role: this.selectedRole.name });
-        this.hideAssignUserModal();
-        this.selectedUser = null;
-        this.userSearchQuery = '';
-        Swal.fire({
-          icon: 'success',
-          title: 'Rol asignado',
-          text: 'El rol ha sido asignado correctamente',
-          timer: 1500,
-          showConfirmButton: false
-        });
-        this.listar_roles()
-        location.reload(); // Refrescar la lista de roles
-      } catch (error) {
-        if (error.response && error.response.status === 422) {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'No se ha seleccionado ningún usuario',
-            timer: 2000,
-            showConfirmButton: false
-          });
-        } else {
-          console.error('Error assigning role to user:', error);
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Hubo un error al asignar el rol',
-            timer: 2000,
-            showConfirmButton: false
-          });
-        }
-      }
-    },
-    showUsersModal(role) {
-      this.selectedRole = role;
-      this.isUsersModalVisible = true;
-    },
-    hideUsersModal() {
-      this.isUsersModalVisible = false;
-    },
-    async desasignarRol(userId, roleName) {
-      try {
-        await axios.put(apiConfig.endpoints.desasignarRol, { user_id: userId, role: roleName });
-        Swal.fire({
-          icon: 'success',
-          title: 'Usuario desasignado',
-          text: 'El usuario ha sido desasignado del rol correctamente',
-          timer: 1500,
-          showConfirmButton: false
-        });
-        this.hideUsersModal(); // Cerrar el modal después de desasignar
-        this.listar_roles();
-        location.reload() // Refrescar la lista de roles
-      } catch (error) {
-        console.error('Error unassigning role from user:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'Hubo un error al desasignar el rol del usuario',
-          timer: 2000,
-          showConfirmButton: false
-        });
-      }
-    },
-    showDeleteRoleModal() {
-      this.showDeleteModal = true;
-    },
-    hideDeleteRoleModal() {
-      this.showDeleteModal = false;
-      this.selectedRoleToDelete = '';
-    },
+
     async confirmDeleteRole() {
       const roleToDelete = this.roles.find(role => role.name === this.selectedRoleToDelete);
       if (roleToDelete && roleToDelete.usuarios_count > 0) {
-        Swal.fire({
+        this.$swal.fire({
           icon: 'error',
           title: 'Error',
           text: 'No se puede eliminar un rol con usuarios asignados',
@@ -616,7 +793,7 @@ export default {
         return;
       }
 
-      Swal.fire({
+      this.$swal.fire({
         title: '¿Estás seguro?',
         text: "¡No podrás revertir esto!",
         icon: 'warning',
@@ -628,38 +805,19 @@ export default {
       }).then((result) => {
         if (result.isConfirmed) {
           this.deleteRole();
-
         }
       });
-    },
-    async deleteRole() {
-      try {
-        await axios.put(`${apiConfig.endpoints.eliminarRol}/${this.selectedRoleToDelete}`);
-        this.roles = this.roles.filter(role => role.name !== this.selectedRoleToDelete);
-        this.hideDeleteRoleModal();
-        this.selectedRoleToDelete = '';
-        Swal.fire({
-          icon: 'success',
-          title: 'Rol eliminado',
-          text: 'El rol ha sido eliminado correctamente',
-          timer: 1000,
-          showConfirmButton: false
-        });
-        this.listar_roles(); // Refrescar la lista de roles
-      } catch (error) {
-        console.error('Error deleting role:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'Hubo un error al eliminar el rol',
-          timer: 2000,
-          showConfirmButton: false
-        });
-      }
     }
   },
-  mounted() {
-    this.listar_roles();
+
+  async created() {
+    // Verificar autenticación
+    if (!this.isAuthenticated) {
+      this.$router.push('/login');
+      return;
+    }
+
+    await this.listar_roles();
   }
 };
 </script>
@@ -1105,5 +1263,27 @@ export default {
 .alert-warning {
   background-color: #fff3cd;
   color: #856404;
+}
+
+/* Spinner */
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Button States */
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-primary:disabled {
+  background-color: #6c757d;
+  border-color: #6c757d;
+}
+
+.btn-danger:disabled {
+  background-color: #6c757d;
+  border-color: #6c757d;
 }
 </style>
