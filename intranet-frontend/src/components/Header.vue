@@ -45,30 +45,36 @@
 <script>
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { useStore } from 'vuex';
 
 export default {
   components: {
     FontAwesomeIcon
   },
   setup() {
+    const store = useStore();
     const pendingCount = ref(0);
     const userRoles = ref([]);
     const isAdmin = ref(false);
     const canSeePortalAprobaciones = ref(false);
 
+    // ✅ CORREGIDO: Obtener token del store de Vuex
+    const token = computed(() => store.getters['auth/token']);
+    const isAuthenticated = computed(() => store.getters['auth/isAuthenticated']);
+
     const fetchUserRoles = async () => {
       try {
-        const token = localStorage.getItem('auth_token');
-        if (!token) {
-          console.error('No se encontró el token en el localStorage');
+        // ✅ CORREGIDO: Usar token del store
+        if (!token.value) {
+          console.error('No se encontró el token en el store');
           return;
         }
 
-        const response = await axios.get('roles_usuario', {
+        const response = await axios.get('/roles_usuario', {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token.value}`
           }
         });
 
@@ -81,7 +87,7 @@ export default {
 
     const fetchAprobacionesCount = async () => {
       try {
-        const response = await axios.get('listar_aprobaciones');
+        const response = await axios.get('/listar_aprobaciones');
         if (response.data.success) {
           pendingCount.value = response.data.data.length;
         }
@@ -91,7 +97,10 @@ export default {
     };
 
     onMounted(() => {
-      fetchUserRoles();
+      // Solo cargar roles si está autenticado
+      if (isAuthenticated.value) {
+        fetchUserRoles();
+      }
     });
 
     watch(userRoles, (newRoles) => {
@@ -116,25 +125,32 @@ export default {
       pendingCount,
       isAdmin,
       canSeePortalAprobaciones,
-      fetchAprobacionesCount
+      fetchAprobacionesCount,
+      store
     };
   },
   methods: {
     paginaPrincipal() {
       this.$router.push({ name: 'homeinicio' });
     },
+
+    // ✅ CORREGIDO: Usar nombre de ruta correcto
     paginaMiEspacio() {
-      this.$router.push({ name: 'miespacio' });
+      this.$router.push({ name: 'MiEspacio' });
     },
+
     paginaPortalColaboradores() {
       this.$router.push({ name: 'portalcolaboradores' });
     },
+
     paginaPortalAprobaciones() {
       this.$router.push({ name: 'portalaprobaciones' });
     },
+
     paginaAdministradores() {
       this.$router.push({ name: 'administradores' });
     },
+
     enConstruccion() {
       Swal.fire({
         icon: 'warning',
@@ -142,25 +158,32 @@ export default {
         text: 'Esta sección está en construcción. Por favor, vuelve más tarde.',
       });
     },
+
+    // ✅ CORREGIDO: Usar store para logout
     async cerrarSesion() {
       try {
-        const token = localStorage.getItem('auth_token');
-        if (!token) {
-          console.error('No se encontró el token en el localStorage');
-          return;
-        }
+        // Usar el store para hacer logout
+        await this.store.dispatch('auth/logout');
 
-        await axios.post('logout', {}, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+        // Navegar a login
+        this.$router.push({ name: 'Login' });
+
+        // Mostrar mensaje de confirmación
+        Swal.fire({
+          icon: 'success',
+          title: 'Sesión cerrada',
+          text: 'Has cerrado sesión correctamente',
+          timer: 1500,
+          timerProgressBar: true,
+          showConfirmButton: false
         });
 
-        localStorage.removeItem('auth_token');
-
-        this.$router.push({ name: 'login' });
       } catch (error) {
-        console.error('Error al cerrar sesión', error);
+        console.error('Error al cerrar sesión:', error);
+
+        // Aún así limpiar y redirigir
+        await this.store.dispatch('auth/logout');
+        this.$router.push({ name: 'Login' });
       }
     }
   }
