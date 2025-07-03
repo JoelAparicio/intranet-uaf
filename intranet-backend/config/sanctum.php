@@ -46,7 +46,7 @@ return [
     */
 
     // ✅ CORREGIDO: Usar variable de entorno con fallback
-    'expiration' => env('SANCTUM_EXPIRATION', 1440), // 24 horas por defecto
+    'expiration' => 1440,
 
     /*
     |--------------------------------------------------------------------------
