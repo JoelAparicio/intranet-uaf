@@ -14,11 +14,7 @@ return [
     |
     */
 
-    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
-        '%s%s',
-        'localhost,localhost:3000,localhost:8080,127.0.0.1,127.0.0.1:8000,::1',
-        Str::startsWith(app()->environment(), 'local') ? ',172.19.115.44' : ''
-    ))),
+    'stateful' => explode(',', 'localhost,localhost:3000,localhost:8080,127.0.0.1,127.0.0.1:8000,::1,172.19.115.44'),
 
     /*
     |--------------------------------------------------------------------------
