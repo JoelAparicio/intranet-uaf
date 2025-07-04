@@ -161,7 +161,7 @@ async function initializeApp() {
     }
 }
 
-/ ===== NAVIGATION GUARD GLOBAL =====
+// ===== NAVIGATION GUARD GLOBAL =====
 router.beforeEach(async (to, from, next) => {
     const isAuthenticated = store.getters['auth/isAuthenticated'];
     const isLoading = store.getters['auth/isLoading'];
