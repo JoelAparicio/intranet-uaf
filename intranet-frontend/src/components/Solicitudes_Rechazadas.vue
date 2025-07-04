@@ -54,7 +54,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import { apiCall } from '@/utils/apiHelper';
 import moment from 'moment';
 import 'moment/locale/es';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
@@ -75,7 +75,6 @@ export default {
     };
   },
   methods: {
-    // ===== AUTENTICACIÓN =====
     getAuthHeaders() {
       if (!this.token) {
         throw new Error('No token available');
@@ -94,7 +93,6 @@ export default {
       return false;
     },
 
-    // ===== API CALLS =====
     async fetchSolicitudesRechazadas() {
       try {
         this.loading = true;
@@ -105,7 +103,7 @@ export default {
           return;
         }
 
-        const response = await axios.get('/solicitudes-rechazadas', {
+        const response = await apiCall.get('solicitudesRechazadas', {
           headers: this.getAuthHeaders()
         });
 
@@ -134,7 +132,6 @@ export default {
       }
     },
 
-    // ===== HELPER METHODS =====
     formatFecha(fecha) {
       if (!fecha) return '';
 
@@ -142,7 +139,7 @@ export default {
         return moment(fecha).format('D [de] MMMM [de] YYYY, h:mm a');
       } catch (error) {
         console.error('Error formatting date:', error);
-        return fecha; // Retornar fecha original si hay error
+        return fecha;
       }
     },
 
@@ -167,7 +164,6 @@ export default {
   },
 
   async created() {
-    // Verificar autenticación
     if (!this.isAuthenticated) {
       this.$router.push('/login');
       return;

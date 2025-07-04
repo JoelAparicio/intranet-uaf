@@ -161,13 +161,13 @@ async function initializeApp() {
     }
 }
 
-// ===== NAVIGATION GUARD GLOBAL =====
+/ ===== NAVIGATION GUARD GLOBAL =====
 router.beforeEach(async (to, from, next) => {
     const isAuthenticated = store.getters['auth/isAuthenticated'];
     const isLoading = store.getters['auth/isLoading'];
 
-    // Rutas que NO requieren autenticación
-    const publicRoutes = ['Login', 'login', 'Register', 'no-acceso'];
+    // ✅ CORREGIDO: Rutas que NO requieren autenticación (nombres estandarizados)
+    const publicRoutes = ['Login', 'Register', 'NoAcceso'];
     const requiresAuth = !publicRoutes.includes(to.name);
 
     console.log('🧭 Navigation guard:', {
@@ -222,7 +222,7 @@ router.beforeEach(async (to, from, next) => {
         }
     }
 
-    // Si está autenticado y trata de ir a login/register, redirigir a dashboard
+    // ✅ CORREGIDO: Si está autenticado y trata de ir a login/register, redirigir a dashboard
     if (isAuthenticated && publicRoutes.includes(to.name)) {
         console.log('↩️ Usuario autenticado - redirigiendo a dashboard');
         return next({ name: 'MiEspacio' });

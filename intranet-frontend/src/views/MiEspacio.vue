@@ -16,7 +16,8 @@
 import Datos_Usuario from '@/components/Datos_Usuario.vue'
 import Solicitudes from '@/components/Solicitudes.vue'
 import Historial_Solicitudes from '@/components/Historial_Solicitudes.vue'
-import axios from 'axios'
+import { apiCall } from '@/utils/apiHelper'
+import { mapGetters } from 'vuex'
 
 export default {
   name: 'MiEspacio',
@@ -25,30 +26,54 @@ export default {
     Datos_Usuario,
     Historial_Solicitudes
   },
+  computed: {
+    ...mapGetters('auth', ['token', 'isAuthenticated'])
+  },
   data() {
     return {
       sharedTiposSolicitudes: []
     }
   },
   async created() {
+    if (!this.isAuthenticated) {
+      this.$router.push({ name: 'Login' });
+      return;
+    }
+
     // OPTIMIZACIÓN 1: Cargar datos en paralelo
     await this.loadDataOptimized()
   },
   methods: {
+    getAuthHeaders() {
+      if (!this.token) {
+        throw new Error('No token available');
+      }
+      return {
+        'Authorization': `Bearer ${this.token}`
+      };
+    },
+
+    async handleAuthError(error) {
+      if (error.response?.status === 401) {
+        await this.$store.dispatch('auth/logout');
+        this.$router.push({ name: 'Login' });
+        return true;
+      }
+      return false;
+    },
+
     async loadDataOptimized() {
       try {
-        const token = localStorage.getItem('auth_token')
+        if (!this.token) {
+          await this.$store.dispatch('auth/logout');
+          this.$router.push({ name: 'Login' });
+          return;
+        }
 
-        // OPTIMIZACIÓN 2: Una sola llamada a listar_solicitud para ambos componentes
-        const tiposSolicitudesPromise = axios.get('listar_solicitud', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-
-        // OPTIMIZACIÓN 3: Ejecutar todas las llamadas en paralelo
-        const [tiposSolicitudesResponse] = await Promise.all([
-          tiposSolicitudesPromise,
-          // Los otros componentes manejan sus propias llamadas, pero ahora pueden usar datos compartidos
-        ])
+        // ✅ USANDO APIHELPER Y AUTH STORE
+        const tiposSolicitudesResponse = await apiCall.get('listarSolicitud', {
+          headers: this.getAuthHeaders()
+        });
 
         // Compartir datos entre componentes
         this.sharedTiposSolicitudes = tiposSolicitudesResponse.data
@@ -65,6 +90,9 @@ export default {
 
       } catch (error) {
         console.error('Error al cargar datos compartidos:', error)
+
+        if (await this.handleAuthError(error)) return;
+
         // Los componentes individuales manejarán sus propios errores como fallback
       }
     }

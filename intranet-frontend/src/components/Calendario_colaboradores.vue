@@ -312,7 +312,7 @@ import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import esLocale from '@fullcalendar/core/locales/es'
-import axios from 'axios'
+import { apiCall } from '@/utils/apiHelper'
 import Swal from 'sweetalert2'
 import moment from 'moment'
 import * as XLSX from 'xlsx'
@@ -340,7 +340,6 @@ export default defineComponent({
     return { calendarRef, getCalendarTitle };
   },
 
-  // ✅ CORREGIDO: Añadir mapGetters para acceder al store
   computed: {
     ...mapGetters('auth', ['token', 'isAuthenticated']),
 
@@ -443,16 +442,13 @@ export default defineComponent({
     }
   },
   mounted() {
-    // Verificar autenticación
     if (!this.isAuthenticated) {
       this.$router.push('/login');
       return;
     }
 
-    // Simulate loading
     setTimeout(() => {
       this.isLoading = false;
-      // Wait for next tick to ensure calendar is rendered
       this.$nextTick(() => {
         setTimeout(() => {
           this.addCustomButtons();
@@ -461,7 +457,6 @@ export default defineComponent({
     }, 500);
   },
   methods: {
-    // ✅ CORREGIDO: Método para obtener headers de autorización
     getAuthHeaders() {
       if (!this.token) {
         throw new Error('No token available');
@@ -471,7 +466,6 @@ export default defineComponent({
       };
     },
 
-    // ✅ CORREGIDO: Método para manejar errores de autenticación
     async handleAuthError(error) {
       if (error.response?.status === 401) {
         await this.$store.dispatch('auth/logout');
@@ -597,11 +591,11 @@ export default defineComponent({
 
       if (result.isConfirmed) {
         try {
-          // ✅ CORREGIDO: URL y headers correctos
-          await axios.put(`/birthdays/${clickInfo.event.id}`,
-              { deleted: true },
-              { headers: this.getAuthHeaders() }
-          );
+          await apiCall.putWithId('birthdays', clickInfo.event.id, {
+            deleted: true
+          }, {
+            headers: this.getAuthHeaders()
+          });
 
           clickInfo.event.remove();
           this.showToastNotification('Cumpleaños eliminado correctamente');
@@ -624,14 +618,12 @@ export default defineComponent({
       this.checkEmptyState();
     },
     checkEmptyState() {
-      // Obtener el mes actual del calendario
       const calendarApi = this.$refs.calendar?.getApi();
       if (calendarApi) {
         const currentDate = calendarApi.getDate();
         const currentMonth = currentDate.getMonth();
         const currentYear = currentDate.getFullYear();
 
-        // Filtrar eventos del mes actual
         const eventsInCurrentMonth = this.currentEvents.filter(event => {
           const eventDate = new Date(event.start);
           return eventDate.getMonth() === currentMonth && eventDate.getFullYear() === currentYear;
@@ -642,8 +634,7 @@ export default defineComponent({
     },
     async fetchEvents(fetchInfo, successCallback, failureCallback) {
       try {
-        // ✅ CORREGIDO: URL y headers correctos
-        const response = await axios.get('/birthdays', {
+        const response = await apiCall.get('birthdays', {
           headers: this.getAuthHeaders()
         });
 
@@ -661,7 +652,6 @@ export default defineComponent({
 
         successCallback(events);
 
-        // Verificar empty state después de cargar eventos
         this.$nextTick(() => {
           this.checkEmptyState();
         });
@@ -690,8 +680,7 @@ export default defineComponent({
           birthday: formattedBirthday
         };
 
-        // ✅ CORREGIDO: URL y headers correctos
-        await axios.post('/addBirthday', birthdayData, {
+        await apiCall.post('addBirthday', birthdayData, {
           headers: this.getAuthHeaders()
         });
 
@@ -738,8 +727,7 @@ export default defineComponent({
       this.isLoadingDirectorio = true;
 
       try {
-        // ✅ CORREGIDO: URL y headers correctos
-        const response = await axios.get('/directorio_usuarios', {
+        const response = await apiCall.get('directorio', {
           headers: this.getAuthHeaders()
         });
 

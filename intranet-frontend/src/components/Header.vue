@@ -43,7 +43,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import { apiCall } from '@/utils/apiHelper';
 import Swal from 'sweetalert2';
 import { ref, onMounted, watch, computed } from 'vue';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
@@ -60,19 +60,17 @@ export default {
     const isAdmin = ref(false);
     const canSeePortalAprobaciones = ref(false);
 
-    // ✅ CORREGIDO: Obtener token del store de Vuex
     const token = computed(() => store.getters['auth/token']);
     const isAuthenticated = computed(() => store.getters['auth/isAuthenticated']);
 
     const fetchUserRoles = async () => {
       try {
-        // ✅ CORREGIDO: Usar token del store
         if (!token.value) {
           console.error('No se encontró el token en el store');
           return;
         }
 
-        const response = await axios.get('/roles_usuario', {
+        const response = await apiCall.get('rolesUsuario', {
           headers: {
             'Authorization': `Bearer ${token.value}`
           }
@@ -87,7 +85,7 @@ export default {
 
     const fetchAprobacionesCount = async () => {
       try {
-        const response = await axios.get('/listar_aprobaciones');
+        const response = await apiCall.get('listarAprobaciones');
         if (response.data.success) {
           pendingCount.value = response.data.data.length;
         }
@@ -97,7 +95,6 @@ export default {
     };
 
     onMounted(() => {
-      // Solo cargar roles si está autenticado
       if (isAuthenticated.value) {
         fetchUserRoles();
       }
@@ -131,24 +128,23 @@ export default {
   },
   methods: {
     paginaPrincipal() {
-      this.$router.push({ name: 'homeinicio' });
+      this.$router.push({ name: 'HomeInicio' });
     },
 
-    // ✅ CORREGIDO: Usar nombre de ruta correcto
     paginaMiEspacio() {
       this.$router.push({ name: 'MiEspacio' });
     },
 
     paginaPortalColaboradores() {
-      this.$router.push({ name: 'portalcolaboradores' });
+      this.$router.push({ name: 'PortalColaboradores' });
     },
 
     paginaPortalAprobaciones() {
-      this.$router.push({ name: 'portalaprobaciones' });
+      this.$router.push({ name: 'PortalAprobaciones' });
     },
 
     paginaAdministradores() {
-      this.$router.push({ name: 'administradores' });
+      this.$router.push({ name: 'Administradores' });
     },
 
     enConstruccion() {
@@ -159,16 +155,11 @@ export default {
       });
     },
 
-    // ✅ CORREGIDO: Usar store para logout
     async cerrarSesion() {
       try {
-        // Usar el store para hacer logout
         await this.store.dispatch('auth/logout');
-
-        // Navegar a login
         this.$router.push({ name: 'Login' });
 
-        // Mostrar mensaje de confirmación
         Swal.fire({
           icon: 'success',
           title: 'Sesión cerrada',
@@ -180,8 +171,6 @@ export default {
 
       } catch (error) {
         console.error('Error al cerrar sesión:', error);
-
-        // Aún así limpiar y redirigir
         await this.store.dispatch('auth/logout');
         this.$router.push({ name: 'Login' });
       }

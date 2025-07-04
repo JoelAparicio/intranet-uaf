@@ -237,7 +237,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import { apiCall } from '@/utils/apiHelper';
 import { Modal } from 'bootstrap';
 import moment from 'moment';
 import { mapGetters } from 'vuex';
@@ -306,7 +306,6 @@ export default {
     }
   },
   methods: {
-    // ===== AUTENTICACIÓN =====
     getAuthHeaders() {
       if (!this.token) {
         throw new Error('No token available');
@@ -325,7 +324,6 @@ export default {
       return false;
     },
 
-    // ===== API CALLS =====
     async fetchSolicitudes() {
       try {
         this.loading = true;
@@ -336,7 +334,7 @@ export default {
           return;
         }
 
-        const response = await axios.get('/listar_solicitud', {
+        const response = await apiCall.get('listarSolicitud', {
           headers: this.getAuthHeaders()
         });
 
@@ -358,7 +356,6 @@ export default {
       }
     },
 
-    // ===== MODAL METHODS =====
     handleCardClick(id) {
       this.selectedSolicitud = id;
       this.selectedSolicitudTitle = this.getSolicitudTitle(id);
@@ -373,7 +370,6 @@ export default {
     },
 
     resetForms() {
-      // Reset all form data
       this.solicitud_permiso = {
         motivo: '',
         observacion: '',
@@ -412,7 +408,6 @@ export default {
       return solicitud ? solicitud.tipo_solicitud : '';
     },
 
-    // ===== VALIDATION METHODS =====
     validarFechas(fecha_inicio, fecha_fin) {
       if (new Date(fecha_fin) < new Date(fecha_inicio)) {
         this.$swal.fire({
@@ -431,7 +426,6 @@ export default {
       const inicio = moment(fecha_inicio, 'YYYY-MM-DD HH:mm');
       const fin = moment(fecha_fin, 'YYYY-MM-DD HH:mm');
 
-      // Validar que las fechas sean válidas
       if (!inicio.isValid() || !fin.isValid()) {
         this.$swal.fire({
           icon: 'error',
@@ -443,7 +437,6 @@ export default {
         return false;
       }
 
-      // Validar duración según la unidad
       if (unidad === 'horas') {
         const diffHoras = fin.diff(inicio, 'hours');
 
@@ -478,7 +471,6 @@ export default {
       const inicio = moment(fecha_inicio, 'YYYY-MM-DD HH:mm');
       const fin = moment(fecha_fin, 'YYYY-MM-DD HH:mm');
 
-      // Validar que las fechas sean válidas
       if (!inicio.isValid() || !fin.isValid()) {
         this.$swal.fire({
           icon: 'error',
@@ -490,17 +482,15 @@ export default {
         return false;
       }
 
-      const diasSemana = [1, 2, 3, 4, 5]; // Lunes a viernes
+      const diasSemana = [1, 2, 3, 4, 5];
       const horaInicioPermitida = moment('08:30', 'HH:mm');
       const horaFinPermitida = moment('16:00', 'HH:mm');
 
-      // Obtener el día de la semana (0 = domingo, 1 = lunes, ..., 6 = sábado)
       const diaInicio = inicio.day();
       const diaFin = fin.day();
 
-      // Validar que las fechas no sean fines de semana
       if (!diasSemana.includes(diaInicio) || !diasSemana.includes(diaFin)) {
-        console.log('Día inicio:', diaInicio, 'Día fin:', diaFin); // Para debugging
+        console.log('Día inicio:', diaInicio, 'Día fin:', diaFin);
         this.$swal.fire({
           icon: 'error',
           title: 'Fecha no válida',
@@ -511,7 +501,6 @@ export default {
         return false;
       }
 
-      // Validar que las horas estén entre 08:30 y 16:00
       const horaInicio = moment(inicio.format('HH:mm'), 'HH:mm');
       const horaFin = moment(fin.format('HH:mm'), 'HH:mm');
 
@@ -552,7 +541,6 @@ export default {
       const inicio = moment(fecha_inicio, 'YYYY-MM-DD HH:mm');
       const fin = moment(fecha_fin, 'YYYY-MM-DD HH:mm');
 
-      // Validar que las fechas coincidan con la duración
       const diffDias = fin.diff(inicio, 'days');
       if (diffDias !== duracion) {
         console.log(diffDias, duracion)
@@ -566,7 +554,6 @@ export default {
         return false;
       }
 
-      // Validar que la duración sea 15 o 30 días
       if (duracion !== 15 && duracion !== 30) {
         this.$swal.fire({
           icon: 'error',
@@ -585,7 +572,6 @@ export default {
       const inicio = moment(fecha_inicio, 'YYYY-MM-DD HH:mm');
       const fin = moment(fecha_fin, 'YYYY-MM-DD HH:mm');
 
-      // Verificar si las fechas son el mismo día
       if (!inicio.isSame(fin, 'day')) {
         this.$swal.fire({
           icon: 'warning',
@@ -597,23 +583,18 @@ export default {
         return false;
       }
 
-      // Obtener el día de la semana
       const diaSemana = inicio.day();
 
-      // Si el día es sábado (6), no aplicar la validación del horario laboral
       if (diaSemana === 6) {
         return true;
       }
 
-      // Definir horarios laborales permitidos
       const horaInicioLaboral = moment('08:30', 'HH:mm');
       const horaFinLaboral = moment('15:59', 'HH:mm');
 
-      // Obtener las horas y minutos de las fechas de inicio y fin
       const horaInicio = moment(inicio.format('HH:mm'), 'HH:mm');
       const horaFin = moment(fin.format('HH:mm'), 'HH:mm');
 
-      // Verificar si las horas están dentro del horario laboral
       if ((horaInicio.isBetween(horaInicioLaboral, horaFinLaboral, null, '[]')) ||
           (horaFin.isBetween(horaInicioLaboral, horaFinLaboral, null, '[]'))) {
         this.$swal.fire({
@@ -629,14 +610,11 @@ export default {
       return true;
     },
 
-    // ===== HELPER METHODS =====
     formatFecha(fecha) {
-      // Si la fecha ya viene en formato datetime-local (YYYY-MM-DDTHH:mm)
       if (fecha.includes('T')) {
         return fecha.replace('T', ' ');
       }
 
-      // Si viene en otro formato, intentar parsearlo con moment
       const momentDate = moment(fecha);
 
       if (!momentDate.isValid()) {
@@ -651,7 +629,6 @@ export default {
       return moment(fecha).format('YYYY-MM-DD 00:00');
     },
 
-    // ===== SUBMIT METHOD =====
     async enviarSolicitud() {
       try {
         if (!this.token) {
@@ -664,11 +641,9 @@ export default {
         let solicitudData;
 
         if (this.selectedSolicitud === 1) {
-          // Formatear fechas al formato yyyy-dd-mm HH:mm
           const fecha_inicio = this.formatFecha(this.solicitud_permiso.fecha_inicio);
           const fecha_fin = this.formatFecha(this.solicitud_permiso.fecha_fin);
 
-          // Validar fechas
           if (!this.validarFechas(fecha_inicio, fecha_fin)) {
             return;
           }
@@ -694,7 +669,6 @@ export default {
             tipo_solicitud: this.selectedSolicitud
           };
         } else if (this.selectedSolicitud === 3) {
-          // Verificar que las fechas no estén vacías
           if (!this.solicitud_uso_tiempo.fecha_inicio || !this.solicitud_uso_tiempo.fecha_fin) {
             this.$swal.fire({
               icon: 'error',
@@ -706,7 +680,6 @@ export default {
             return;
           }
 
-          // Formatear fechas al formato yyyy-MM-dd HH:mm
           const fecha_inicio = this.formatFecha(this.solicitud_uso_tiempo.fecha_inicio);
           const fecha_fin = this.formatFecha(this.solicitud_uso_tiempo.fecha_fin);
 
@@ -715,12 +688,10 @@ export default {
             fin: fecha_fin
           });
 
-          // Validar tiempo compensatorio
           if (!this.validarTiempoCompensatorio(fecha_inicio, fecha_fin, parseInt(this.solicitud_uso_tiempo.duracion), this.solicitud_uso_tiempo.unidad)) {
             return;
           }
 
-          // Validar que no sea fin de semana
           if (!this.validarPermiso(fecha_inicio, fecha_fin)) {
             return;
           }
@@ -733,7 +704,6 @@ export default {
             tipo_solicitud: this.selectedSolicitud
           };
         } else if (this.selectedSolicitud === 4) {
-          // Validar que todos los campos estén llenos
           if (!this.solicitud_vacaciones.fecha_inicio || !this.solicitud_vacaciones.fecha_fin ||
               !this.solicitud_vacaciones.salario || !this.solicitud_vacaciones.dias) {
             this.$swal.fire({
@@ -749,12 +719,10 @@ export default {
           const fecha_inicio = this.formatFechaVacaciones(this.solicitud_vacaciones.fecha_inicio);
           const fecha_fin = this.formatFechaVacaciones(this.solicitud_vacaciones.fecha_fin);
 
-          // Validar fechas
           if (!this.validarFechas(fecha_inicio, fecha_fin)) {
             return;
           }
 
-          // Convertir días a número
           const dias = parseInt(this.solicitud_vacaciones.dias);
 
           if (!this.validarVacaciones(fecha_inicio, fecha_fin, dias)) {
@@ -774,7 +742,6 @@ export default {
           const fecha_inicio = this.formatFecha(this.solicitud_horas_extras.fecha_inicio);
           const fecha_fin = this.formatFecha(this.solicitud_horas_extras.fecha_fin);
 
-          // Validar fechas
           if (!this.validarFechas(fecha_inicio, fecha_fin)) {
             return;
           }
@@ -797,7 +764,7 @@ export default {
           };
         }
 
-        const response = await axios.post('/insertar_solicitud', solicitudData, {
+        const response = await apiCall.post('insertarSolicitud', solicitudData, {
           headers: this.getAuthHeaders()
         });
 
@@ -809,13 +776,11 @@ export default {
             timer: 2000,
             showConfirmButton: false
           }).then(() => {
-            // Cerrar modal primero
             this.closeModal();
 
-            // Esperar un poco para que el modal se cierre completamente
             setTimeout(() => {
               location.reload();
-            }, 300); // Reducido a 300ms para que sea más rápido
+            }, 300);
           });
         } else {
           this.$swal.fire({
@@ -843,20 +808,17 @@ export default {
   },
 
   async created() {
-    // Verificar autenticación
     if (!this.isAuthenticated) {
       this.$router.push('/login');
       return;
     }
 
-    // Usar datos del padre si están disponibles, sino cargar desde API
     if (this.tiposSolicitudes.length > 0) {
       this.solicitudes = this.tiposSolicitudes;
     } else {
       await this.fetchSolicitudes();
     }
 
-    // Inicializar modal después del próximo tick
     this.$nextTick(() => {
       const modalElement = document.getElementById('solicitudModal');
       if (modalElement) {
@@ -866,7 +828,6 @@ export default {
   },
 
   beforeUnmount() {
-    // Limpiar modal instance
     if (this.solicitudModalInstance) {
       this.solicitudModalInstance.dispose();
     }

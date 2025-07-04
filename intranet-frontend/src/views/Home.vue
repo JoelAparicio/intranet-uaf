@@ -8,8 +8,8 @@
 import Header from '@/components/Header.vue'
 import Footer from '@/components/Footer.vue'
 import { provide } from 'vue';
-import axios from 'axios';
-import apiConfig from '@/config/api'
+import { apiCall } from '@/utils/apiHelper';
+import { mapGetters } from 'vuex';
 
 export default {
   name: 'Home',
@@ -17,10 +17,14 @@ export default {
     Header,
     Footer
   },
+  computed: {
+    ...mapGetters('auth', ['token'])
+  },
   setup() {
     const fetchAprobacionesCount = async () => {
       try {
-        const response = await axios.get('listar_aprobaciones');
+        // ✅ USANDO APIHELPER
+        const response = await apiCall.get('listarAprobaciones');
         return response.data.success ? response.data.data.length : 0;
       } catch (error) {
         console.error('Error fetching aprobaciones count:', error);

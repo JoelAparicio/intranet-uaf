@@ -355,109 +355,48 @@
 </template>
 
 <script>
-import axios from 'axios';
+import { apiCall } from '@/utils/apiHelper';
+import moment from 'moment';
+import 'moment/locale/es';
+import Swal from 'sweetalert2';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { mapGetters } from 'vuex';
 
 export default {
-  name: 'ListaUsuarioRol',
   components: {
     FontAwesomeIcon
   },
+
   computed: {
-    ...mapGetters('auth', ['token', 'isAuthenticated', 'user']),
-
-    filteredUsers() {
-      return this.users.filter(user => {
-        const matchesSearch = this.searchTerm === '' ||
-            user.nombre.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-            user.correo_electronico.toLowerCase().includes(this.searchTerm.toLowerCase());
-        const matchesRole = this.selectedRole === '' || user.roles.includes(this.selectedRole);
-        const matchesStatus = this.selectedStatus === '' || user.estado === this.selectedStatus;
-
-        return matchesSearch && matchesRole && matchesStatus;
-      });
-    },
-    hasActiveFilters() {
-      return this.searchTerm || this.selectedRole || this.selectedStatus;
-    },
-    totalPages() {
-      return Math.ceil(this.filteredUsers.length / this.itemsPerPage);
-    },
-    paginatedUsers() {
-      const start = (this.currentPage - 1) * this.itemsPerPage;
-      const end = start + this.itemsPerPage;
-      return this.filteredUsers.slice(start, end);
-    },
-    startIndex() {
-      return (this.currentPage - 1) * this.itemsPerPage;
-    },
-    endIndex() {
-      return Math.min(this.startIndex + this.itemsPerPage, this.filteredUsers.length);
-    },
-    visiblePages() {
-      const delta = 2;
-      const range = [];
-      const rangeWithDots = [];
-      let l;
-
-      for (let i = 1; i <= this.totalPages; i++) {
-        if (i === 1 || i === this.totalPages || (i >= this.currentPage - delta && i <= this.currentPage + delta)) {
-          range.push(i);
-        }
-      }
-
-      range.forEach((i) => {
-        if (l) {
-          if (i - l === 2) {
-            rangeWithDots.push(l + 1);
-          } else if (i - l !== 1) {
-            rangeWithDots.push('...');
-          }
-        }
-        rangeWithDots.push(i);
-        l = i;
-      });
-
-      return rangeWithDots;
-    }
+    ...mapGetters('auth', ['token', 'isAuthenticated', 'user'])
   },
+
   data() {
     return {
-      openDropdownId: null,
-      searchTerm: '',
-      selectedRole: '',
-      selectedStatus: '',
-      roles: [],
-      users: [],
-      currentUser: {},
-      showEditUserModal: false,
-      editUserData: {
-        id: null,
-        nombre: '',
-        correo_electronico: '',
-        cargo: '',
-        posicion: '',
-        cedula: '',
-        extension: '',
-        departamento: '',
-        tiempo_extra: 0
-      },
-      viewMode: 'table',
-      currentPage: 1,
-      itemsPerPage: 10,
+      aprobaciones: [],
       loading: true,
-      isUpdatingUser: false
+      isProcessing: null,
+      isLoadingPDF: null,
+      userRoles: [],
+      userId: null,
+      userFirma: null,
+      pdfPath: null,
+      showModal: false,
+      solicitudVisualizada: null,
+      solicitudEnVisualizacion: null
     };
   },
-  watch: {
-    filteredUsers() {
-      // Reset to first page when filters change
-      this.currentPage = 1;
+
+  async created() {
+    if (!this.isAuthenticated) {
+      this.$router.push('/login');
+      return;
     }
+
+    await this.fetchUserRoles();
   },
+
   methods: {
-    // ===== AUTENTICACIÓN =====
     getAuthHeaders() {
       if (!this.token) {
         throw new Error('No token available');
@@ -476,323 +415,258 @@ export default {
       return false;
     },
 
-    // ===== DROPDOWN =====
-    getDropdownPosition(userId) {
-      // Verificar si es uno de los últimos usuarios
-      const userIndex = this.paginatedUsers.findIndex(u => u.id === userId);
-      const isLastRows = userIndex >= this.paginatedUsers.length - 2; // Los últimos 2 usuarios
-
-      if (isLastRows || this.viewMode === 'cards') {
-        return {
-          bottom: '100%',
-          top: 'auto',
-          marginBottom: '0.125rem',
-          marginTop: '0'
-        };
-      }
-
-      return {
-        top: '100%',
-        bottom: 'auto',
-        marginTop: '0.125rem',
-        marginBottom: '0'
-      };
-    },
-
-    toggleDropdown(userId) {
-      if (this.openDropdownId === userId) {
-        this.openDropdownId = null;
-      } else {
-        this.openDropdownId = userId;
-      }
-    },
-
-    handleEditUser(user) {
-      this.openDropdownId = null;
-      this.openEditUserModal(user);
-    },
-
-    handleToggleStatus(user) {
-      this.openDropdownId = null;
-      this.toggleUserStatus(user);
-    },
-
-    handleDeleteUser(user) {
-      this.openDropdownId = null;
-      this.confirmDeleteUser(user);
-    },
-
-    // ===== API CALLS =====
-    async fetchUsers() {
+    async fetchUserRoles() {
       try {
-        this.loading = true;
+        // ✅ USANDO APIHELPER
+        const response = await apiCall.get('rolesUsuario', {
+          headers: this.getAuthHeaders()
+        });
 
-        if (!this.token) {
-          await this.$store.dispatch('auth/logout');
-          this.$router.push('/login');
-          return;
+        this.userRoles = response.data.roles || [];
+        this.userId = response.data.id_usuario;
+
+        // ✅ USANDO APIHELPER
+        const userResponse = await apiCall.get('user', {
+          headers: this.getAuthHeaders()
+        });
+
+        this.userFirma = userResponse.data?.data?.firma_path;
+
+        await this.fetchAprobaciones();
+      } catch (error) {
+        console.error('Error fetching user roles:', error);
+
+        if (await this.handleAuthError(error)) return;
+
+        this.showErrorAlert('Error al obtener los roles del usuario');
+      }
+    },
+
+    async fetchAprobaciones() {
+      this.loading = true;
+      try {
+        // ✅ USANDO APIHELPER
+        const response = await apiCall.get('listarAprobaciones', {
+          headers: this.getAuthHeaders()
+        });
+
+        if (response.data.success) {
+          this.aprobaciones = response.data.data;
         }
+      } catch (error) {
+        console.error('Error fetching aprobaciones:', error);
 
-        const response = await axios.get('/administrar_usuarios', {
+        if (await this.handleAuthError(error)) return;
+
+        this.showErrorAlert('Error al cargar las solicitudes');
+      } finally {
+        this.loading = false;
+        this.solicitudVisualizada = null;
+      }
+    },
+
+    async aprobarSolicitud(id_solicitud, id_usuario_solicitud) {
+      if (this.isSelfSolicitante(id_usuario_solicitud)) {
+        this.showWarningAlert('No puedes aprobar tu propia solicitud.');
+        return;
+      }
+
+      if (!this.userFirma) {
+        this.showWarningAlert('Debes subir tu firma antes de aprobar solicitudes.');
+        return;
+      }
+
+      if (this.solicitudVisualizada !== id_solicitud) {
+        this.showWarningAlert('Debe visualizar la solicitud antes de aprobarla.');
+        return;
+      }
+
+      const result = await Swal.fire({
+        title: '¿Confirmar aprobación?',
+        text: 'Esta acción no se puede deshacer.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, aprobar',
+        cancelButtonText: 'Cancelar'
+      });
+
+      if (!result.isConfirmed) return;
+
+      this.isProcessing = id_solicitud;
+
+      try {
+        // ✅ USANDO APIHELPER
+        const response = await apiCall.putWithId('aprobarSolicitud', id_solicitud, {}, {
+          headers: this.getAuthHeaders()
+        });
+
+        if (response.data.success) {
+          this.showSuccessAlert('La solicitud ha sido aprobada exitosamente.');
+          await this.fetchAprobaciones();
+        }
+      } catch (error) {
+        console.error('Error al aprobar solicitud:', error);
+
+        if (await this.handleAuthError(error)) return;
+
+        this.showErrorAlert(`Error al aprobar la solicitud: ${error.response?.data?.message || error.message}`);
+      } finally {
+        this.isProcessing = null;
+      }
+    },
+
+    async rechazarSolicitud(id_solicitud, id_usuario_solicitud) {
+      if (this.isSelfSolicitante(id_usuario_solicitud)) {
+        this.showWarningAlert('No puedes rechazar tu propia solicitud.');
+        return;
+      }
+
+      if (this.solicitudVisualizada !== id_solicitud) {
+        this.showWarningAlert('Debe visualizar la solicitud antes de rechazarla.');
+        return;
+      }
+
+      const { value: comentarios } = await Swal.fire({
+        title: 'Ingrese el motivo para el rechazo',
+        input: 'textarea',
+        inputPlaceholder: 'Describa el motivo del rechazo...',
+        inputAttributes: {
+          'aria-label': 'Ingrese el motivo para el rechazo'
+        },
+        showCancelButton: true,
+        confirmButtonText: 'Rechazar',
+        confirmButtonColor: '#dc3545',
+        cancelButtonText: 'Cancelar',
+        cancelButtonColor: '#6c757d',
+        inputValidator: (value) => {
+          if (!value || value.trim().length === 0) {
+            return 'Debe ingresar un motivo para el rechazo';
+          }
+          if (value.trim().length < 10) {
+            return 'El motivo debe tener al menos 10 caracteres';
+          }
+        }
+      });
+
+      if (comentarios) {
+        this.isProcessing = id_solicitud;
+
+        try {
+          // ✅ USANDO APIHELPER
+          const response = await apiCall.putWithId('rechazarSolicitud', id_solicitud, {
+            comentarios: comentarios.trim()
+          }, {
+            headers: this.getAuthHeaders()
+          });
+
+          if (response.data.success) {
+            this.showSuccessAlert('La solicitud ha sido rechazada.');
+            await this.fetchAprobaciones();
+          }
+        } catch (error) {
+          console.error('Error al rechazar solicitud:', error);
+
+          if (await this.handleAuthError(error)) return;
+
+          this.showErrorAlert(`Error al rechazar la solicitud: ${error.response?.data?.message || error.message}`);
+        } finally {
+          this.isProcessing = null;
+        }
+      }
+    },
+
+    async verPDF(id_solicitud) {
+      this.isLoadingPDF = id_solicitud;
+
+      try {
+        // ✅ USANDO APIHELPER
+        const response = await apiCall.post('obtenerRutaPdf', {
+          id_solicitud
+        }, {
           headers: this.getAuthHeaders()
         });
 
         if (response.data.status) {
-          this.users = response.data.data;
-          this.roles = [...new Set(this.users.flatMap(user => user.roles))];
-
-          // Emitir estadísticas al componente padre
-          const activeUsers = this.users.filter(u => u.estado === 'Activo').length;
-          this.$emit('update-stats', {
-            totalUsers: this.users.length,
-            activeUsers: activeUsers
-          });
+          // Construir URL completa correctamente
+          this.pdfPath = axios.defaults.baseURL.replace('/api', '') + response.data.pdf_file_path;
+          this.solicitudEnVisualizacion = id_solicitud;
+          this.showModal = true;
+        } else {
+          this.showErrorAlert(response.data.message || 'No se pudo obtener el PDF');
         }
       } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error al obtener la ruta del PDF:', error);
 
         if (await this.handleAuthError(error)) return;
 
-        this.$swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'No se pudieron cargar los usuarios',
-          timer: 2000,
-          showConfirmButton: false
-        });
+        this.showErrorAlert('Error al obtener la ruta del PDF');
       } finally {
-        this.loading = false;
+        this.isLoadingPDF = null;
       }
     },
 
-    async fetchCurrentUser() {
-      try {
-        if (!this.token) {
-          await this.$store.dispatch('auth/logout');
-          this.$router.push('/login');
-          return;
-        }
-
-        const response = await axios.get('/user', {
-          headers: this.getAuthHeaders()
-        });
-
-        this.currentUser = response.data.data;
-      } catch (error) {
-        console.error('Error fetching current user:', error);
-        await this.handleAuthError(error);
-      }
+    cerrarModal() {
+      this.showModal = false;
+      this.pdfPath = null;
+      this.solicitudVisualizada = this.solicitudEnVisualizacion;
+      this.solicitudEnVisualizacion = null;
     },
 
-    async deleteUser(userId, actionUserId) {
-      try {
-        if (!this.token) {
-          await this.$store.dispatch('auth/logout');
-          this.$router.push('/login');
-          return;
-        }
-
-        await axios.put(`/borrar_usuario/${userId}`,
-            { action_user_id: actionUserId },
-            { headers: this.getAuthHeaders() }
-        );
-
-        await this.fetchUsers();
-
-        this.$swal.fire({
-          icon: 'success',
-          title: 'Eliminado!',
-          text: 'El usuario ha sido eliminado.',
-          timer: 1500,
-          showConfirmButton: false
-        });
-      } catch (error) {
-        console.error('Error deleting user:', error);
-
-        if (await this.handleAuthError(error)) return;
-
-        this.$swal.fire({
-          icon: 'error',
-          title: 'Error!',
-          text: 'No se pudo eliminar el usuario.'
-        });
-      }
+    formatFecha(fecha) {
+      if (!fecha) return '';
+      return moment(fecha).format('D [de] MMMM [de] YYYY, h:mm a');
     },
 
-    async updateUser() {
-      try {
-        if (!this.token) {
-          await this.$store.dispatch('auth/logout');
-          this.$router.push('/login');
-          return;
-        }
-
-        this.isUpdatingUser = true;
-
-        await axios.put(`/actualizar_usuario/${this.editUserData.id}`,
-            this.editUserData,
-            { headers: this.getAuthHeaders() }
-        );
-
-        await this.fetchUsers();
-        this.closeEditUserModal();
-
-        this.$swal.fire({
-          title: 'Actualizado!',
-          text: 'El usuario ha sido actualizado.',
-          icon: 'success',
-          timer: 1500,
-          showConfirmButton: false
-        });
-      } catch (error) {
-        console.error('Error updating user:', error);
-
-        if (await this.handleAuthError(error)) return;
-
-        this.$swal.fire({
-          icon: 'error',
-          title: 'Error!',
-          text: 'No se pudo actualizar el usuario.'
-        });
-      } finally {
-        this.isUpdatingUser = false;
-      }
+    isSelfSolicitante(id_usuario_solicitud) {
+      return this.userId === id_usuario_solicitud;
     },
 
-    async toggleUserStatus(user) {
-      try {
-        if (!this.token) {
-          await this.$store.dispatch('auth/logout');
-          this.$router.push('/login');
-          return;
-        }
-
-        const newState = user.estado === 'Activo' ? 'inactivo' : 'activo';
-
-        await axios.put(`/status_usuario/${user.id}`,
-            { estado: newState },
-            { headers: this.getAuthHeaders() }
-        );
-
-        await this.fetchUsers();
-
-        this.$swal.fire({
-          title: 'Status actualizado!',
-          text: `El usuario ahora está ${newState}.`,
-          icon: 'success',
-          timer: 1500,
-          showConfirmButton: false
-        });
-      } catch (error) {
-        console.error('Error toggling user status:', error);
-
-        if (await this.handleAuthError(error)) return;
-
-        this.$swal.fire({
-          icon: 'error',
-          title: 'Error!',
-          text: 'No se pudo cambiar el estado del usuario.'
-        });
-      }
+    getBadgeClass(tipoSolicitud) {
+      const classes = {
+        'Vacaciones': 'badge-success',
+        'Permiso': 'badge-warning',
+        'Licencia': 'badge-info',
+        'Reincorporación': 'badge-secondary',
+        'Tiempo Compensatorio': 'badge-primary',
+        'Horas Extraordinarias': 'badge-info'
+      };
+      return classes[tipoSolicitud] || 'badge-primary';
     },
 
-    // ===== MODAL METHODS =====
-    confirmDeleteUser(user) {
-      if (user.id === this.currentUser.id) {
-        this.$swal.fire({
-          icon: 'error',
-          title: 'Error!',
-          text: 'No puedes borrarte a ti mismo.'
-        });
-        return;
-      }
-
-      this.$swal.fire({
-        title: '¿Estás seguro?',
-        text: 'Esta acción será permanente y no se puede deshacer.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar'
-      }).then((result) => {
-        if (result.isConfirmed) {
-          this.deleteUser(user.id, this.currentUser.id);
-        }
+    showSuccessAlert(message) {
+      Swal.fire({
+        title: '¡Éxito!',
+        text: message,
+        icon: 'success',
+        timer: 3000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end'
       });
     },
 
-    openEditUserModal(user) {
-      this.editUserData = { ...user };
-      this.showEditUserModal = true;
+    showErrorAlert(message) {
+      Swal.fire({
+        title: 'Error',
+        text: message,
+        icon: 'error',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#dc3545'
+      });
     },
 
-    closeEditUserModal() {
-      this.showEditUserModal = false;
-      this.isUpdatingUser = false;
-    },
-
-    // ===== HELPER METHODS =====
-    getRoleColor(role) {
-      if (!role) return '#6c757d';
-      const lowerRole = role.toLowerCase();
-      if (lowerRole.includes('administrador')) return '#dc3545';
-      if (lowerRole.includes('jefe') || lowerRole.includes('director')) return '#007bff';
-      if (lowerRole.includes('analista')) return '#28a745';
-      if (lowerRole.includes('aseso')) return '#6f42c1';
-      return '#6c757d';
-    },
-
-    clearFilters() {
-      this.searchTerm = '';
-      this.selectedRole = '';
-      this.selectedStatus = '';
-    },
-
-    // ===== PAGINATION =====
-    changePage(page) {
-      if (page !== '...' && page >= 1 && page <= this.totalPages) {
-        this.currentPage = page;
-      }
-    },
-
-    nextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++;
-      }
-    },
-
-    previousPage() {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-      }
+    showWarningAlert(message) {
+      Swal.fire({
+        title: 'Atención',
+        text: message,
+        icon: 'warning',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#ffc107'
+      });
     }
-  },
-
-  async created() {
-    // Verificar autenticación
-    if (!this.isAuthenticated) {
-      this.$router.push('/login');
-      return;
-    }
-
-    await this.fetchUsers();
-    await this.fetchCurrentUser();
-  },
-
-  mounted() {
-    // Cerrar dropdown al hacer click fuera
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.custom-dropdown')) {
-        this.openDropdownId = null;
-      }
-    });
-  },
-
-  beforeUnmount() {
-    // Limpiar event listeners
-    document.removeEventListener('click', () => {});
   }
 };
 </script>

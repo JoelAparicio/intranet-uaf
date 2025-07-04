@@ -403,7 +403,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import { apiCall } from '@/utils/apiHelper';
 import moment from 'moment';
 import 'moment/locale/es';
 import { Modal } from 'bootstrap';
@@ -426,22 +426,18 @@ export default {
       filtroFechaInicio: '',
       filtroFechaFin: '',
 
-      // Estados de carga
       isLoading: false,
       isUpdating: false,
       isGeneratingPDF: null,
 
-      // Modal de edición
       solicitudEditando: null,
       editModalInstance: null,
       editErrors: {},
 
-      // Modal de PDF
       pdfModalInstance: null,
       solicitudViendoPDF: null,
       pdfUrl: null,
 
-      // Motivos predefinidos
       motivosDescontables: [
         { valor: 'Enfermedad', nombre: 'Enfermedad' },
         { valor: 'Duelo', nombre: 'Duelo' },
@@ -466,7 +462,6 @@ export default {
   },
 
   computed: {
-    // ✅ CORREGIDO: Usar mapGetters del store
     ...mapGetters('auth', ['token', 'isAuthenticated']),
 
     solicitudesFiltradas() {
@@ -520,15 +515,13 @@ export default {
     async fetchSolicitudes() {
       this.isLoading = true;
       try {
-        // ✅ CORREGIDO: Verificar autenticación y usar token del store
         if (!this.token) {
           await this.$store.dispatch('auth/logout');
           this.$router.push('/login');
           return;
         }
 
-        // ✅ CORREGIDO: URL correcta con '/'
-        const response = await axios.get('/historial_solicitud', {
+        const response = await apiCall.get('historialSolicitud', {
           headers: {
             'Authorization': `Bearer ${this.token}`
           }
@@ -537,7 +530,6 @@ export default {
       } catch (error) {
         console.error('Error fetching solicitudes', error);
 
-        // ✅ CORREGIDO: Manejar error 401 con logout del store
         if (error.response?.status === 401) {
           await this.$store.dispatch('auth/logout');
           this.$router.push('/login');
@@ -556,10 +548,9 @@ export default {
 
     async fetchTiposSolicitudes() {
       try {
-        // ✅ CORREGIDO: Verificar token y URL correcta
         if (!this.token) return;
 
-        const response = await axios.get('/listar_solicitud', {
+        const response = await apiCall.get('listarSolicitud', {
           headers: {
             'Authorization': `Bearer ${this.token}`
           }
@@ -578,8 +569,7 @@ export default {
       this.pdfUrl = null;
 
       try {
-        // ✅ CORREGIDO: URL correcta y token del store
-        const response = await axios.post('/obtener_ruta_pdf', {
+        const response = await apiCall.post('obtenerRutaPdf', {
           id_solicitud: solicitud.id_solicitud
         }, {
           headers: {
@@ -588,7 +578,6 @@ export default {
         });
 
         if (response.data.status && response.data.pdf_file_path) {
-          // Construir la URL completa del PDF
           this.pdfUrl = axios.defaults.baseURL.replace('/api', '') + response.data.pdf_file_path;
           this.pdfModalInstance.show();
         } else {
@@ -650,15 +639,11 @@ export default {
           datosActualizacion.justificacion = this.solicitudEditando.justificacion;
         }
 
-        // ✅ CORREGIDO: URL correcta y token del store
-        const response = await axios.put(`/actualizar_solicitud/${this.solicitudEditando.id_solicitud}`,
-            datosActualizacion,
-            {
-              headers: {
-                'Authorization': `Bearer ${this.token}`
-              }
-            }
-        );
+        const response = await apiCall.putWithId('actualizarSolicitud', this.solicitudEditando.id_solicitud, datosActualizacion, {
+          headers: {
+            'Authorization': `Bearer ${this.token}`
+          }
+        });
 
         console.log('Respuesta del servidor:', response.data);
 
@@ -705,12 +690,10 @@ export default {
     getFullPdfUrl(relativePath) {
       if (!relativePath) return '';
 
-      // Si ya es una URL completa, devolverla tal como está
       if (relativePath.startsWith('http')) {
         return relativePath;
       }
 
-      // Si es una ruta relativa, construir URL completa
       return `${window.location.origin}${relativePath}`;
     },
 

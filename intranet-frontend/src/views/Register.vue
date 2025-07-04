@@ -68,10 +68,14 @@
 </template>
 
 <script>
-import axios from 'axios'
+import { apiCall } from '@/utils/apiHelper';
+import { mapGetters } from 'vuex';
 
 export default {
   name: 'Register',
+  computed: {
+    ...mapGetters('auth', ['isAuthenticated'])
+  },
   data() {
     return {
       nombre: '',
@@ -120,7 +124,8 @@ export default {
           departamento: this.departamento
         };
 
-        const response = await axios.post('/register', userData);
+        // ✅ USANDO APIHELPER
+        const response = await apiCall.post('register', userData);
 
         console.log('✅ Registro exitoso:', response.data);
 

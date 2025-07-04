@@ -5,22 +5,23 @@
       <Footer />
     </div>
   </template>
-  
-  <script>
-  import Footer from '@/components/Footer.vue'
-  
-  export default {
-    name: 'NoAccess',
-    components: {
-      Footer
-    },
-    methods: {
-      redirectToLogin() {
-        this.$router.push({ name: 'login' });
-      }
+
+<script>
+import Footer from '@/components/Footer.vue'
+
+export default {
+  name: 'NoAccess',
+  components: {
+    Footer
+  },
+  methods: {
+    redirectToLogin() {
+      // ✅ CORREGIDO: Usar nombre de ruta estandarizado
+      this.$router.push({ name: 'Login' });
     }
   }
-  </script>
+}
+</script>
   
   <style scoped>
   .no-access-wrapper {

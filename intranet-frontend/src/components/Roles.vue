@@ -325,7 +325,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import { apiCall } from '@/utils/apiHelper';
 import { mapGetters } from 'vuex';
 
 export default {
@@ -348,7 +348,7 @@ export default {
       const query = this.userSearchQuery.toLowerCase();
       return this.users.filter(user =>
           user.correo_electronico.toLowerCase().includes(query)
-      ).slice(0, 5); // Limitar a 5 resultados
+      ).slice(0, 5);
     },
     totalUsersCount() {
       return this.roles.reduce((sum, role) => sum + role.usuarios_count, 0) || 1;
@@ -406,7 +406,6 @@ export default {
     };
   },
   methods: {
-    // ===== AUTENTICACIÓN =====
     getAuthHeaders() {
       if (!this.token) {
         throw new Error('No token available');
@@ -425,7 +424,6 @@ export default {
       return false;
     },
 
-    // ===== API CALLS =====
     async listar_roles() {
       try {
         this.loading = true;
@@ -437,14 +435,13 @@ export default {
         }
 
         const [rolesResponse, usersResponse] = await Promise.all([
-          axios.get('/roles', { headers: this.getAuthHeaders() }),
-          axios.get('/listar_usuarios', { headers: this.getAuthHeaders() })
+          apiCall.get('roles', { headers: this.getAuthHeaders() }),
+          apiCall.get('listarUsuarios', { headers: this.getAuthHeaders() })
         ]);
 
         this.roles = rolesResponse.data;
         this.users = Array.isArray(usersResponse.data.data) ? usersResponse.data.data : [];
 
-        // Emitir estadísticas al componente padre
         this.$emit('update-stats', {
           totalRoles: this.roles.length,
           totalUsers: this.users.length
@@ -478,10 +475,11 @@ export default {
 
         this.isCreatingRole = true;
 
-        const response = await axios.post('/agregar_roles',
-            { name: this.newRole },
-            { headers: this.getAuthHeaders() }
-        );
+        const response = await apiCall.post('agregarRoles', {
+          name: this.newRole
+        }, {
+          headers: this.getAuthHeaders()
+        });
 
         this.roles.push(response.data.data);
         this.hideAddRoleModal();
@@ -495,7 +493,7 @@ export default {
           showConfirmButton: false
         });
 
-        await this.listar_roles(); // Refrescar la lista de roles
+        await this.listar_roles();
       } catch (error) {
         console.error('Error creating role:', error);
 
@@ -523,13 +521,12 @@ export default {
 
         this.isAssigningRole = true;
 
-        await axios.post('/asignar_rol',
-            {
-              user_id: this.selectedUser.id,
-              role: this.selectedRole.name
-            },
-            { headers: this.getAuthHeaders() }
-        );
+        await apiCall.post('asignarRol', {
+          user_id: this.selectedUser.id,
+          role: this.selectedRole.name
+        }, {
+          headers: this.getAuthHeaders()
+        });
 
         this.hideAssignUserModal();
         this.selectedUser = null;
@@ -543,7 +540,7 @@ export default {
           showConfirmButton: false
         });
 
-        await this.listar_roles(); // Refrescar la lista de roles
+        await this.listar_roles();
       } catch (error) {
         console.error('Error assigning role to user:', error);
 
@@ -581,10 +578,12 @@ export default {
 
         this.isUnassigningRole = true;
 
-        await axios.put('/desasignar_rol',
-            { user_id: userId, role: roleName },
-            { headers: this.getAuthHeaders() }
-        );
+        await apiCall.put('desasignarRol', {
+          user_id: userId,
+          role: roleName
+        }, {
+          headers: this.getAuthHeaders()
+        });
 
         this.$swal.fire({
           icon: 'success',
@@ -594,8 +593,8 @@ export default {
           showConfirmButton: false
         });
 
-        this.hideUsersModal(); // Cerrar el modal después de desasignar
-        await this.listar_roles(); // Refrescar la lista de roles
+        this.hideUsersModal();
+        await this.listar_roles();
       } catch (error) {
         console.error('Error unassigning role from user:', error);
 
@@ -623,7 +622,7 @@ export default {
 
         this.isDeletingRole = true;
 
-        await axios.put(`/eliminar_rol/${this.selectedRoleToDelete}`, {}, {
+        await apiCall.putWithId('eliminarRol', this.selectedRoleToDelete, {}, {
           headers: this.getAuthHeaders()
         });
 
@@ -639,7 +638,7 @@ export default {
           showConfirmButton: false
         });
 
-        await this.listar_roles(); // Refrescar la lista de roles
+        await this.listar_roles();
       } catch (error) {
         console.error('Error deleting role:', error);
 
@@ -657,7 +656,6 @@ export default {
       }
     },
 
-    // ===== PAGINATION =====
     changePage(page) {
       if (page !== '...' && page >= 1 && page <= this.totalPages) {
         this.currentPage = page;
@@ -674,7 +672,6 @@ export default {
       }
     },
 
-    // ===== HELPER METHODS =====
     getIcon(roleName) {
       const lowerRoleName = roleName.toLowerCase();
       if (lowerRoleName.includes('jefe') || lowerRoleName.includes('director') || lowerRoleName.includes('subdirector')) {
@@ -699,7 +696,6 @@ export default {
       return '#6c757d';
     },
 
-    // ===== MODAL METHODS =====
     showAddRoleModal() {
       this.showModal = true;
     },
@@ -738,14 +734,13 @@ export default {
       this.isDeletingRole = false;
     },
 
-    // ===== USER SEARCH METHODS =====
     updateSearchResults() {
-      this.selectedUser = null; // Limpiar usuario seleccionado si se cambia la búsqueda
+      this.selectedUser = null;
     },
 
     selectUser(user) {
       this.selectedUser = user;
-      this.userSearchQuery = user.correo_electronico; // Mostrar solo el correo electrónico en el campo de búsqueda
+      this.userSearchQuery = user.correo_electronico;
     },
 
     clearSelectedUser() {
@@ -811,7 +806,6 @@ export default {
   },
 
   async created() {
-    // Verificar autenticación
     if (!this.isAuthenticated) {
       this.$router.push('/login');
       return;

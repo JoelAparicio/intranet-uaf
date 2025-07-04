@@ -369,16 +369,15 @@
 </template>
 
 <script>
-import axios from 'axios'
-import { Modal } from 'bootstrap'
-import Swal from 'sweetalert2'
-import { mapGetters } from 'vuex'
+import { apiCall } from '@/utils/apiHelper';
+import { Modal } from 'bootstrap';
+import Swal from 'sweetalert2';
+import { mapGetters } from 'vuex';
 
 export default {
   name: 'DatosUsuario',
   data() {
     return {
-      // Datos del usuario
       user: {
         id: null,
         nombre: '',
@@ -394,7 +393,6 @@ export default {
         firma_url: null
       },
 
-      // Datos para edición
       editUser: {
         nombre: '',
         cargo: '',
@@ -402,21 +400,17 @@ export default {
         extension: ''
       },
 
-      // Archivos de firma
       firmaFile: null,
       editFirmaFile: null,
       firmaPreview: null,
 
-      // Instancias de modales
       editModalInstance: null,
       firmaModalInstance: null,
 
-      // Estados de carga
       isLoading: false,
       isUpdating: false,
       isUploading: false,
 
-      // Errores de validación
       editErrors: {}
     }
   },
@@ -430,20 +424,15 @@ export default {
   },
 
   methods: {
-    /**
-     * Obtener datos del usuario autenticado
-     */
     async fetchUserData() {
       this.isLoading = true
       try {
-        // ✅ CORREGIDO: Usar token del store de Vuex
         if (!this.token) {
           this.$router.push('/login')
           return
         }
 
-        // ✅ CORREGIDO: URL correcta de la API
-        const response = await axios.get('/information_user', {
+        const response = await apiCall.get('userInfo', {
           headers: {
             'Authorization': `Bearer ${this.token}`
           }
@@ -485,16 +474,12 @@ export default {
       }
     },
 
-    /**
-     * Actualizar datos básicos del usuario
-     */
     async updateUserData() {
       this.isUpdating = true
       this.editErrors = {}
 
       try {
-        // ✅ CORREGIDO: Usar token del store
-        const updateResponse = await axios.put('/edit_information', this.editUser, {
+        const updateResponse = await apiCall.put('editUser', this.editUser, {
           headers: {
             'Authorization': `Bearer ${this.token}`
           }
@@ -504,12 +489,11 @@ export default {
           throw new Error(updateResponse.data.message || 'Error al actualizar datos')
         }
 
-        // Si hay una nueva firma, subirla
         if (this.editFirmaFile) {
           const formData = new FormData()
           formData.append('firma', this.editFirmaFile)
 
-          const firmaResponse = await axios.post('/upload-firma', formData, {
+          const firmaResponse = await apiCall.post('uploadFirma', formData, {
             headers: {
               'Authorization': `Bearer ${this.token}`,
               'Content-Type': 'multipart/form-data'
@@ -558,13 +542,9 @@ export default {
       }
     },
 
-    /**
-     * Manejar selección de archivo de firma (modal principal)
-     */
     handleFirmaFile(e) {
       const file = e.target.files[0]
       if (file) {
-        // Validar tamaño (2MB)
         if (file.size > 2 * 1024 * 1024) {
           Swal.fire({
             icon: 'warning',
@@ -577,7 +557,6 @@ export default {
 
         this.firmaFile = file
 
-        // Crear preview de la imagen
         const reader = new FileReader()
         reader.onload = (event) => {
           this.firmaPreview = event.target.result
@@ -589,9 +568,6 @@ export default {
       }
     },
 
-    /**
-     * Manejar selección de archivo de firma (modal de edición)
-     */
     handleEditFirmaFile(e) {
       const file = e.target.files[0]
       if (file && file.size > 2 * 1024 * 1024) {
@@ -606,9 +582,6 @@ export default {
       this.editFirmaFile = file
     },
 
-    /**
-     * Subir firma digital
-     */
     async uploadFirma() {
       if (!this.firmaFile) {
         Swal.fire({
@@ -624,8 +597,7 @@ export default {
       formData.append('firma', this.firmaFile)
 
       try {
-        // ✅ CORREGIDO: URL correcta y token del store
-        const response = await axios.post('/upload-firma', formData, {
+        const response = await apiCall.post('uploadFirma', formData, {
           headers: {
             'Authorization': `Bearer ${this.token}`,
             'Content-Type': 'multipart/form-data'
@@ -634,7 +606,6 @@ export default {
 
         console.log('Respuesta del servidor:', response.data)
 
-        // Actualizar el usuario con la nueva firma
         if (response.data.success && response.data.data) {
           if (response.data.data.user) {
             Object.assign(this.user, response.data.data.user)
@@ -684,9 +655,6 @@ export default {
       }
     },
 
-    /**
-     * Resetear formulario de firma
-     */
     resetFirmaForm() {
       this.firmaFile = null
       this.firmaPreview = null
@@ -694,9 +662,6 @@ export default {
       if (input) input.value = ''
     },
 
-    /**
-     * Resetear formulario de edición
-     */
     resetEditForm() {
       this.editFirmaFile = null
       this.editErrors = {}
@@ -704,9 +669,6 @@ export default {
       if (editFirmaInput) editFirmaInput.value = ''
     },
 
-    /**
-     * Cerrar modal de forma más robusta
-     */
     closeModal(modalId) {
       try {
         const modalElement = document.getElementById(modalId)
@@ -735,9 +697,6 @@ export default {
       }
     },
 
-    /**
-     * Remover todos los backdrops de modales
-     */
     removeModalBackdrops() {
       const backdrops = document.querySelectorAll('.modal-backdrop')
       backdrops.forEach(backdrop => {
@@ -745,9 +704,6 @@ export default {
       })
     },
 
-    /**
-     * Método de emergencia para cerrar todos los modales
-     */
     forceCloseAllModals() {
       document.body.classList.remove('modal-open')
       document.body.style.overflow = ''
